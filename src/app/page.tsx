@@ -1577,6 +1577,9 @@ export default function Home() {
       return {
         id: album.id,
         name: album.name,
+        fullName: album.fullName || album.name,
+        parentId: album.parentId || null,
+        path: album.path || album.name,
         count,
       };
     });

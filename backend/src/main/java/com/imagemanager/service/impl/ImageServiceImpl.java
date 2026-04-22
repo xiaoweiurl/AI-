@@ -1324,10 +1324,10 @@ public class ImageServiceImpl implements ImageService {
     /**
      * 从文件名中解析层级目录结构
      * 支持的格式：
+     * - "松野湃/速干T恤/蓝色款.jpg" -> "松野湃/速干T恤/蓝色款"（直接包含斜杠）
      * - "松野湃-速干T恤.jpg" -> "松野湃/速干T恤"
      * - "松野湃_速干T恤.jpg" -> "松野湃/速干T恤"
      * - "松野湃.速干T恤.jpg" -> "松野湃/速干T恤"
-     * - "松野湃/速干T恤.jpg" -> "松野湃/速干T恤"
      * 
      * @param filename 文件名
      * @return 层级路径，如果不符合规则返回 null
@@ -1340,14 +1340,42 @@ public class ImageServiceImpl implements ImageService {
         // 移除文件扩展名
         String nameWithoutExt = removeFileExtension(filename);
         
-        // 尝试不同的分隔符
+        // 1. 首先检查是否包含斜杠分隔符（优先级最高）
+        if (nameWithoutExt.contains("/")) {
+            String[] parts = nameWithoutExt.split("/");
+            // 过滤掉空的部分，并验证至少有父级和子级
+            List<String> validParts = new ArrayList<>();
+            for (String part : parts) {
+                String trimmed = part.trim();
+                if (!trimmed.isEmpty() && trimmed.length() >= 1) {
+                    validParts.add(trimmed);
+                }
+            }
+            
+            // 至少需要两级目录才算有效
+            if (validParts.size() >= 2) {
+                // 检查最后一级是否合理（不应该是纯数字或常见后缀）
+                String lastPart = validParts.get(validParts.size() - 1);
+                if (!lastPart.toLowerCase().contains("copy") &&
+                    !lastPart.toLowerCase().contains("备份") &&
+                    !lastPart.toLowerCase().contains("backup") &&
+                    !lastPart.matches("^\\d+$")) {
+                    // 转换为标准路径格式
+                    String path = String.join("/", validParts);
+                    log.info("从文件名中解析出斜杠分隔的层级路径: {}", path);
+                    return path;
+                }
+            }
+        }
+        
+        // 2. 尝试不同的分隔符（-, _, .）
         String[] separators = {"-", "_", "."};
         
         for (String separator : separators) {
             // 检查是否包含分隔符
             if (nameWithoutExt.contains(separator)) {
                 // 分割检查是否有层级结构
-                String[] parts = nameWithoutExt.split("[" + separator + "]+");
+                String[] parts = nameWithoutExt.split("[" + Pattern.quote(separator) + "]+");
                 
                 // 如果有多个部分，且第一部分是品牌/大类，第二部分是子类
                 if (parts.length >= 2) {

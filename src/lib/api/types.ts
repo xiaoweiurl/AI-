@@ -126,6 +126,9 @@ export interface Notification {
 export interface Album {
   id: string;
   name: string;
+  fullName?: string;      // 完整显示名称，如 "松野湃-速干T恤"
+  parentId?: string;       // 父相册ID，null 表示顶级
+  path?: string;           // 层级路径，如 "松野湃/速干T恤"
   description?: string;
   coverUrl?: string;
   imageCount: number;
@@ -133,6 +136,7 @@ export interface Album {
   createdAt: string;
   updatedAt: string;
   userId: string;
+  children?: Album[];      // 子相册列表
 }
 
 // 图片查询参数

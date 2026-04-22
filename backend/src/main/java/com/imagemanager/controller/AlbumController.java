@@ -114,4 +114,79 @@ public class AlbumController {
         int updatedCount = albumService.resetAllMatchingConfig();
         return ApiResponse.success("重置成功，共重置 " + updatedCount + " 个相册", updatedCount);
     }
+    
+    /**
+     * 创建层级相册
+     */
+    @PostMapping("/tree")
+    @Operation(summary = "创建层级相册", description = "创建带父级的相册，如：松野湃/速干T恤")
+    public ApiResponse<Album> createAlbumWithParent(@RequestBody CreateAlbumRequest request) {
+        log.info("创建层级相册：{}，父级：{}", request.getName(), request.getParentId());
+        Album created = albumService.createAlbumWithParent(
+            request.getName(),
+            request.getParentId(),
+            request.getDescription(),
+            request.getKeywords()
+        );
+        return ApiResponse.success("创建成功", created);
+    }
+    
+    /**
+     * 根据路径获取或创建相册
+     */
+    @PostMapping("/by-path")
+    @Operation(summary = "根据路径获取或创建相册", description = "根据路径自动创建层级相册，如：松野湃/速干T恤")
+    public ApiResponse<Album> getOrCreateByPath(@RequestBody GetOrCreateByPathRequest request) {
+        log.info("根据路径获取或创建相册：{}", request.getPath());
+        Album album = albumService.getOrCreateAlbumByPath(request.getPath());
+        return ApiResponse.success(album);
+    }
+    
+    /**
+     * 获取相册树
+     */
+    @GetMapping("/tree")
+    @Operation(summary = "获取相册树", description = "获取用户的层级相册结构")
+    public ApiResponse<List<Album>> getAlbumTree(
+            @Parameter(description = "用户ID") @RequestParam(required, defaultValue = "user-1") String userId) {
+        log.info("获取相册树：{}", userId);
+        List<Album> albums = albumService.getAlbumTree(userId);
+        return ApiResponse.success(albums);
+    }
+    
+    /**
+     * 获取子相册
+     */
+    @GetMapping("/{id}/children")
+    @Operation(summary = "获取子相册", description = "获取指定相册下的子相册")
+    public ApiResponse<List<Album>> getChildAlbums(
+            @Parameter(description = "父相册ID") @PathVariable String id) {
+        log.info("获取子相册：{}", id);
+        List<Album> children = albumService.getChildAlbums(id);
+        return ApiResponse.success(children);
+    }
+}
+
+// 请求类
+class CreateAlbumRequest {
+    private String name;
+    private String parentId;
+    private String description;
+    private List<String> keywords;
+    
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public String getParentId() { return parentId; }
+    public void setParentId(String parentId) { this.parentId = parentId; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public List<String> getKeywords() { return keywords; }
+    public void setKeywords(List<String> keywords) { this.keywords = keywords; }
+}
+
+class GetOrCreateByPathRequest {
+    private String path;
+    
+    public String getPath() { return path; }
+    public void setPath(String path) { this.path = path; }
 }

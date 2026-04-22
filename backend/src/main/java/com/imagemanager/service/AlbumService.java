@@ -69,4 +69,35 @@ public interface AlbumService {
      * @return 更新的相册数量
      */
     int resetAllMatchingConfig();
+    
+    /**
+     * 创建层级相册（支持父级）
+     * @param name 相册名称
+     * @param parentId 父相册ID（null 表示顶级）
+     * @param description 描述
+     * @param keywords 关键词
+     * @return 创建的相册
+     */
+    Album createAlbumWithParent(String name, String parentId, String description, List<String> keywords);
+    
+    /**
+     * 根据路径获取或创建相册（用于自动分类）
+     * @param fullPath 完整路径，如 "松野湃/速干T恤"
+     * @return 相册
+     */
+    Album getOrCreateAlbumByPath(String fullPath);
+    
+    /**
+     * 获取用户的层级相册树
+     * @param userId 用户ID
+     * @return 顶级相册列表（包含子相册）
+     */
+    List<Album> getAlbumTree(String userId);
+    
+    /**
+     * 获取相册的所有子相册
+     * @param parentId 父相册ID
+     * @return 子相册列表
+     */
+    List<Album> getChildAlbums(String parentId);
 }

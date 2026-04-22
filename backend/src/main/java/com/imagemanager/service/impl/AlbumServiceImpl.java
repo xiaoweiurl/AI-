@@ -304,4 +304,117 @@ public class AlbumServiceImpl implements AlbumService {
         log.info("重置所有相册的匹配配置为默认值（包含匹配）");
         return batchUpdateMatchingMode("contains");
     }
+    
+    @Override
+    public Album createAlbumWithParent(String name, String parentId, String description, List<String> keywords) {
+        log.info("创建层级相册：{}，父级：{}", name, parentId);
+        
+        String userId = "user-1";
+        String path;
+        String fullName;
+        
+        if (parentId != null) {
+            // 获取父相册
+            Album parent = albumRepository.findById(parentId)
+                    .orElseThrow(() -> new RuntimeException("父相册不存在"));
+            path = parent.getPath() != null ? parent.getPath() + "/" + name : name;
+            fullName = parent.getName() + "-" + name;
+        } else {
+            path = name;
+            fullName = name;
+        }
+        
+        // 检查是否已存在
+        Optional<Album> existing = albumRepository.findByUserIdAndPath(userId, path);
+        if (existing.isPresent()) {
+            log.info("相册已存在：{}", path);
+            return existing.get();
+        }
+        
+        long count = albumRepository.count();
+        
+        Album album = Album.builder()
+                .id("album-" + UUID.randomUUID().toString().substring(0, 8))
+                .name(name)
+                .fullName(fullName)
+                .parentId(parentId)
+                .path(path)
+                .description(description)
+                .keywords(keywords != null ? keywords : Arrays.asList(name))
+                .isSystem(false)
+                .imageCount(0)
+                .sortOrder((int) count)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .userId(userId)
+                .build();
+        
+        return albumRepository.save(album);
+    }
+    
+    @Override
+    public Album getOrCreateAlbumByPath(String fullPath) {
+        log.info("根据路径获取或创建相册：{}", fullPath);
+        
+        String userId = "user-1";
+        
+        // 检查是否已存在
+        Optional<Album> existing = albumRepository.findByUserIdAndPath(userId, fullPath);
+        if (existing.isPresent()) {
+            return existing.get();
+        }
+        
+        // 解析路径创建层级相册
+        String[] parts = fullPath.split("/");
+        String parentId = null;
+        Album parent = null;
+        
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i].trim();
+            if (part.isEmpty()) continue;
+            
+            String currentPath = String.join("/", Arrays.copyOf(parts, i + 1));
+            Optional<Album> current = albumRepository.findByUserIdAndPath(userId, currentPath);
+            
+            if (current.isPresent()) {
+                parent = current.get();
+                parentId = parent.getId();
+            } else {
+                // 创建新的相册
+                String fullName = i == 0 ? part : (parent != null ? parent.getName() + "-" + part : part);
+                
+                Album album = Album.builder()
+                        .id("album-" + UUID.randomUUID().toString().substring(0, 8))
+                        .name(part)
+                        .fullName(fullName)
+                        .parentId(parentId)
+                        .path(currentPath)
+                        .keywords(Arrays.asList(part))
+                        .isSystem(false)
+                        .imageCount(0)
+                        .sortOrder((int) albumRepository.count())
+                        .createdAt(LocalDateTime.now())
+                        .updatedAt(LocalDateTime.now())
+                        .userId(userId)
+                        .build();
+                
+                parent = albumRepository.save(album);
+                parentId = parent.getId();
+                log.info("创建相册：{}，路径：{}", part, currentPath);
+            }
+        }
+        
+        return parent;
+    }
+    
+    @Override
+    public List<Album> getAlbumTree(String userId) {
+        log.info("获取用户层级相册树：{}", userId);
+        return albumRepository.findByUserIdAndParentIdIsNullOrderBySortOrderAsc(userId);
+    }
+    
+    @Override
+    public List<Album> getChildAlbums(String parentId) {
+        return albumRepository.findByUserIdAndParentIdOrderBySortOrderAsc("user-1", parentId);
+    }
 }

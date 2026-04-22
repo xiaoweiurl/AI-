@@ -700,38 +700,60 @@ public class ImageServiceImpl implements ImageService {
             List<String> finalTags = tags;
             String classifyMethod = "user";
 
-            if (albumId == null || tags == null || tags.isEmpty()) {
-                // 使用AI服务分析图片
-                List<Album> albums = albumService.getAllAlbums();
-                AIRecognitionService.AIRecognitionResult result = aiRecognitionService.analyzeImage(
-                        imageUrl, originalFilename, albums);
-
-                if (albumId == null && result.getAlbumId() != null) {
-                    finalAlbumId = result.getAlbumId();
-                    finalAlbumName = result.getAlbumName();
-                } else if (albumId == null && result.shouldCreateNewAlbum()) {
-                    // 如果没有匹配到相册，尝试根据名称匹配已有相册
-                    log.info("尝试根据名称匹配已有相册: {}", result.getSuggestedAlbumName());
-                    Album matchedAlbum = findOrMatchAlbum(result.getSuggestedAlbumName());
-                    if (matchedAlbum != null) {
-                        finalAlbumId = matchedAlbum.getId();
-                        finalAlbumName = matchedAlbum.getName();
-                        classifyMethod = "auto-matched";
-                        log.info("成功匹配到已有相册: ID={}, 名称={}", finalAlbumId, finalAlbumName);
-                    } else {
-                        log.warn("未找到匹配的相册，跳过相册分配: {}", result.getSuggestedAlbumName());
-                        // 不创建新相册，也不分配相册
-                        classifyMethod = "unmatched";
+            // 1. 首先检查文件名是否包含层级目录（如 "松野湃-速干T恤"）
+            if (finalAlbumId == null && originalFilename != null) {
+                String pathFromFilename = parseHierarchyFromFilename(originalFilename);
+                if (pathFromFilename != null) {
+                    log.info("从文件名中解析出层级路径: {}", pathFromFilename);
+                    try {
+                        Album hierarchyAlbum = albumService.getOrCreateAlbumByPath(pathFromFilename);
+                        if (hierarchyAlbum != null) {
+                            finalAlbumId = hierarchyAlbum.getId();
+                            finalAlbumName = hierarchyAlbum.getFullName();
+                            classifyMethod = "filename-hierarchy";
+                            log.info("根据文件名自动创建/获取层级相册: ID={}, 名称={}", finalAlbumId, finalAlbumName);
+                        }
+                    } catch (Exception e) {
+                        log.warn("根据文件名创建层级相册失败: {}", e.getMessage());
                     }
                 }
+            }
 
-                if (tags == null || tags.isEmpty()) {
-                    finalTags = result.getTags();
-                }
+            // 2. 如果没有从文件名中提取到目录，使用 AI 服务分析
+            if (finalAlbumId == null) {
+                if (albumId == null || tags == null || tags.isEmpty()) {
+                    // 使用AI服务分析图片
+                    List<Album> albums = albumService.getAllAlbums();
+                    AIRecognitionService.AIRecognitionResult result = aiRecognitionService.analyzeImage(
+                            imageUrl, originalFilename, albums);
 
-                // 如果没有设置分类方法，使用AI结果的方法
-                if ("user".equals(classifyMethod) && result.getMethod() != null) {
-                    classifyMethod = result.getMethod();
+                    if (albumId == null && result.getAlbumId() != null) {
+                        finalAlbumId = result.getAlbumId();
+                        finalAlbumName = result.getAlbumName();
+                    } else if (albumId == null && result.shouldCreateNewAlbum()) {
+                        // 如果没有匹配到相册，尝试根据名称匹配已有相册
+                        log.info("尝试根据名称匹配已有相册: {}", result.getSuggestedAlbumName());
+                        Album matchedAlbum = findOrMatchAlbum(result.getSuggestedAlbumName());
+                        if (matchedAlbum != null) {
+                            finalAlbumId = matchedAlbum.getId();
+                            finalAlbumName = matchedAlbum.getName();
+                            classifyMethod = "auto-matched";
+                            log.info("成功匹配到已有相册: ID={}, 名称={}", finalAlbumId, finalAlbumName);
+                        } else {
+                            log.warn("未找到匹配的相册，跳过相册分配: {}", result.getSuggestedAlbumName());
+                            // 不创建新相册，也不分配相册
+                            classifyMethod = "unmatched";
+                        }
+                    }
+
+                    if (tags == null || tags.isEmpty()) {
+                        finalTags = result.getTags();
+                    }
+
+                    // 如果没有设置分类方法，使用AI结果的方法
+                    if ("user".equals(classifyMethod) && result.getMethod() != null) {
+                        classifyMethod = result.getMethod();
+                    }
                 }
             }
             
@@ -1297,6 +1319,57 @@ public class ImageServiceImpl implements ImageService {
         } else {
             return String.format("%.1f GB", size / (1024.0 * 1024 * 1024));
         }
+    }
+    
+    /**
+     * 从文件名中解析层级目录结构
+     * 支持的格式：
+     * - "松野湃-速干T恤.jpg" -> "松野湃/速干T恤"
+     * - "松野湃_速干T恤.jpg" -> "松野湃/速干T恤"
+     * - "松野湃.速干T恤.jpg" -> "松野湃/速干T恤"
+     * - "松野湃/速干T恤.jpg" -> "松野湃/速干T恤"
+     * 
+     * @param filename 文件名
+     * @return 层级路径，如果不符合规则返回 null
+     */
+    private String parseHierarchyFromFilename(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return null;
+        }
+        
+        // 移除文件扩展名
+        String nameWithoutExt = removeFileExtension(filename);
+        
+        // 尝试不同的分隔符
+        String[] separators = {"-", "_", "."};
+        
+        for (String separator : separators) {
+            // 检查是否包含分隔符
+            if (nameWithoutExt.contains(separator)) {
+                // 分割检查是否有层级结构
+                String[] parts = nameWithoutExt.split("[" + separator + "]+");
+                
+                // 如果有多个部分，且第一部分是品牌/大类，第二部分是子类
+                if (parts.length >= 2) {
+                    String firstPart = parts[0].trim();
+                    String secondPart = parts[1].trim();
+                    
+                    // 第一部分不能太短（至少2个字符）
+                    // 第二部分不能包含常见的后缀
+                    if (firstPart.length() >= 2 && 
+                        !secondPart.toLowerCase().contains("copy") &&
+                        !secondPart.toLowerCase().contains("备份") &&
+                        !secondPart.toLowerCase().contains("backup") &&
+                        !secondPart.matches(".*\\d+.*")) { // 第二部分不应该主要是数字
+                        
+                        // 构建层级路径
+                        return firstPart + "/" + secondPart;
+                    }
+                }
+            }
+        }
+        
+        return null;
     }
     
     /**

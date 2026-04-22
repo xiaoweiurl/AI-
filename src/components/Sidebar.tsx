@@ -29,6 +29,7 @@ import {
   Presentation,
   Archive,
   File,
+  ChevronRight,
 } from 'lucide-react';
 import {
   Dialog,
@@ -47,7 +48,11 @@ import { toast } from 'sonner';
 export interface AlbumInfo {
   id: string;
   name: string;
+  fullName?: string;
+  parentId?: string;
+  path?: string;
   count: number;
+  children?: AlbumInfo[];
 }
 
 interface MenuItem {
@@ -55,12 +60,120 @@ interface MenuItem {
   label: string;
   icon: any;
   count?: number;
-  children?: Array<{
-    id: string;
-    label: string;
-    count: number;
-  }>;
+  children?: MenuItem[];
   showAddButton?: boolean;
+}
+
+/**
+ * 将扁平相册数组构建为层级结构
+ */
+function buildAlbumHierarchy(albums: AlbumInfo[]): MenuItem[] {
+  const albumMap = new Map<string, AlbumInfo>();
+  const rootAlbums: AlbumInfo[] = [];
+  
+  // 先将所有相册放入 map
+  albums.forEach(album => {
+    albumMap.set(album.id, { ...album, children: [] });
+  });
+  
+  // 构建层级关系
+  albums.forEach(album => {
+    const currentAlbum = albumMap.get(album.id)!;
+    if (album.parentId && albumMap.has(album.parentId)) {
+      // 有父相册，加入父相册的 children
+      albumMap.get(album.parentId)!.children!.push(currentAlbum);
+    } else {
+      // 顶级相册
+      rootAlbums.push(currentAlbum);
+    }
+  });
+  
+  // 转换为 MenuItem 格式
+  function albumToMenuItem(album: AlbumInfo): MenuItem {
+    return {
+      id: album.id,
+      label: album.fullName || album.name,
+      count: album.count,
+      children: album.children?.map(child => albumToMenuItem(child)),
+    };
+  }
+  
+  return rootAlbums.map(album => albumToMenuItem(album));
+}
+
+/**
+ * 递归渲染子菜单项
+ */
+function SubMenuItem({
+  item,
+  activeItem,
+  onItemClick,
+  level = 1,
+}: {
+  item: MenuItem;
+  activeItem: string;
+  onItemClick: (id: string) => void;
+  level?: number;
+}) {
+  const hasChildren = item.children && item.children.length > 0;
+  const [isExpanded, setIsExpanded] = React.useState(level <= 1);
+  const isActive = activeItem === item.id;
+
+  return (
+    <div>
+      <div
+        className={cn(
+          'group flex items-center gap-2 rounded-lg text-sm transition-all duration-200',
+          level > 0 ? 'px-3 py-1.5' : 'px-3 py-2',
+          isActive
+            ? 'bg-violet-50 text-violet-700 font-medium'
+            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+        )}
+        style={{ paddingLeft: `${level > 0 ? level * 12 + 12 : 12}px` }}
+      >
+        {/* 展开/折叠按钮 */}
+        {hasChildren && (
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex-shrink-0 w-4 h-4 flex items-center justify-center hover:bg-slate-200 rounded"
+          >
+            <ChevronRight
+              className={cn(
+                'w-3 h-3 transition-transform',
+                isExpanded && 'rotate-90'
+              )}
+            />
+          </button>
+        )}
+        {!hasChildren && <div className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />}
+
+        <button
+          onClick={() => onItemClick(item.id)}
+          className="flex items-center gap-2 flex-1 min-w-0"
+        >
+          <span className="flex-1 text-left truncate">{item.label}</span>
+          {item.count !== undefined && item.count > 0 && (
+            <span className="text-xs text-slate-400">{item.count}</span>
+          )}
+        </button>
+      </div>
+
+      {/* 递归渲染子项 */}
+      {hasChildren && isExpanded && (
+        <div className="mt-0.5">
+          {item.children!.map(child => (
+            <SubMenuItem
+              key={child.id}
+              item={child}
+              activeItem={activeItem}
+              onItemClick={onItemClick}
+              level={level + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export interface SmartAlbumInfo extends AlbumInfo {
@@ -345,11 +458,7 @@ export default function Sidebar({
       id: 'albums',
       label: '知识分类',
       icon: FolderOpen,
-      children: albums.map(album => ({
-        id: album.id,
-        label: album.name,
-        count: album.count,
-      })),
+      children: buildAlbumHierarchy(albums),
       showAddButton: true,
     },
     // 文档中心 - 替换原智能相册
@@ -719,47 +828,17 @@ export default function Sidebar({
                   </button>
                 )}
 
-                {/* 子菜单 */}
+                {/* 子菜单 - 使用递归组件支持层级 */}
                 {item.children && isExpanded && !collapsed && (
-                  <div className="ml-8 mt-1 space-y-1">
+                  <div className="mt-1 space-y-0.5">
                     {item.children.map((child) => (
-                      <div
+                      <SubMenuItem
                         key={child.id}
-                        className={cn(
-                          'group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all duration-200',
-                          activeItem === child.id
-                            ? 'bg-violet-50 text-violet-700 font-medium'
-                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
-                        )}
-                      >
-                        <button
-                          onClick={() => onItemClick(child.id)}
-                          className="flex items-center gap-2 flex-1 min-w-0"
-                        >
-                          <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                          <span className="flex-1 text-left truncate">{child.label}</span>
-                          {child.count !== undefined && child.count > 0 && (
-                            <span className="text-xs text-slate-400">{child.count}</span>
-                          )}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            const album = albums.find(a => a.id === child.id);
-                            if (album) openDeleteDialog(album, e);
-                          }}
-                          className="p-1 rounded hover:bg-red-100 transition-colors opacity-0 group-hover:opacity-100"
-                          aria-label="删除相册"
-                        >
-                          <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                        </button>
-                        <button
-                          onClick={(e) => openEditDialog(child.id, e)}
-                          className="p-1 rounded hover:bg-violet-100 transition-colors opacity-0 group-hover:opacity-100"
-                          aria-label="编辑相册配置"
-                        >
-                          <Settings2 className="w-3.5 h-3.5 text-violet-600" />
-                        </button>
-                      </div>
+                        item={child}
+                        activeItem={activeItem}
+                        onItemClick={onItemClick}
+                        level={1}
+                      />
                     ))}
                   </div>
                 )}

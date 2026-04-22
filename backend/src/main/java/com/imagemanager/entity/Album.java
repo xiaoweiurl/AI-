@@ -36,6 +36,25 @@ public class Album {
     private String id;
     
     /**
+     * 父相册ID（支持层级结构）
+     * null 表示顶级相册
+     */
+    @Column(name = "parent_id", length = 36)
+    private String parentId;
+    
+    /**
+     * 相册层级路径（如 "松野湃/速干T恤"）
+     */
+    @Column(name = "path", length = 500)
+    private String path;
+    
+    /**
+     * 完整显示名称（如 "松野湃-速干T恤"）
+     */
+    @Column(name = "full_name", length = 200)
+    private String fullName;
+    
+    /**
      * 相册名称
      */
     @Column(length = 100, nullable = false)

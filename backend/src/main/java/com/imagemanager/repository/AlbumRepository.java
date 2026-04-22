@@ -63,4 +63,25 @@ public interface AlbumRepository extends JpaRepository<Album, String> {
      */
     @Query("SELECT a FROM Album a JOIN a.keywords k WHERE LOWER(k) LIKE LOWER(:keyword)")
     List<Album> findByKeyword(@Param("keyword") String keyword);
+    
+    /**
+     * 查询顶级相册（parentId 为 null）
+     */
+    List<Album> findByUserIdAndParentIdIsNullOrderBySortOrderAsc(String userId);
+    
+    /**
+     * 查询子相册（根据父ID）
+     */
+    List<Album> findByUserIdAndParentIdOrderBySortOrderAsc(String userId, String parentId);
+    
+    /**
+     * 根据路径查询相册
+     */
+    Optional<Album> findByUserIdAndPath(String userId, String path);
+    
+    /**
+     * 查询所有子相册（包括深层级）
+     */
+    @Query("SELECT a FROM Album a WHERE a.path LIKE CONCAT(:pathPrefix, '%') AND a.userId = :userId")
+    List<Album> findAllDescendants(@Param("userId") String userId, @Param("pathPrefix") String pathPrefix);
 }

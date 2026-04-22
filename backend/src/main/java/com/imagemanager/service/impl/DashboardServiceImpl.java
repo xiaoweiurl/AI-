@@ -115,7 +115,7 @@ public class DashboardServiceImpl implements DashboardService {
             totalAlbums,
             totalTags,
             favoritesCount,
-            trashImages.size(),
+            (long) trashImages.size(),
             recentUploads7d,
             recentUploads30d
         );

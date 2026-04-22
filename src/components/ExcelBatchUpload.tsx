@@ -115,26 +115,28 @@ export default function ExcelBatchUpload({
         // 收集详情图URL（从E列开始，索引4），支持合并被拆分的URL
         const detailImageUrls: string[] = [];
         let currentUrl = '';
+        let consecutiveEmptyCount = 0; // 连续空单元格计数
         
         for (let colIndex = 4; colIndex < row.length; colIndex++) { // 从E列开始（索引4）
           const value = row[colIndex];
           
-          if (!value || typeof value !== 'string') {
-            // 空单元格，检查是否有未完成的URL
+          if (!value || typeof value !== 'string' || value.trim().length === 0) {
+            // 空单元格
             if (currentUrl.length > 0) {
-              // 如果连续遇到空单元格，可能意味着URL结束了
-              // 检查后面是否有更多内容
-              if (colIndex + 1 >= row.length || !row[colIndex + 1]) {
-                // 后面没有内容了，保存当前URL
+              consecutiveEmptyCount++;
+              // 连续遇到3个以上空单元格，认为URL结束了
+              if (consecutiveEmptyCount >= 3) {
                 if (currentUrl.startsWith('http')) {
                   detailImageUrls.push(currentUrl.trim());
                 }
                 currentUrl = '';
+                consecutiveEmptyCount = 0;
               }
             }
             continue;
           }
           
+          consecutiveEmptyCount = 0; // 重置连续空计数
           const trimmedValue = value.trim();
           
           // 判断是否是新URL的开始
@@ -142,7 +144,6 @@ export default function ExcelBatchUpload({
             // 如果有未完成的URL，先保存
             if (currentUrl.length > 0) {
               detailImageUrls.push(currentUrl.trim());
-              currentUrl = '';
             }
             // 开始新的URL
             currentUrl = trimmedValue;
@@ -178,8 +179,9 @@ export default function ExcelBatchUpload({
             currentUrl.match(/\.(jpg|jpeg|png|gif|webp)(\?.*)?$/i) ||
             currentUrl.length > 200; // URL太长可能不完整，但也不太可能是被拆分的
             
-          if (isCompleteUrl && (colIndex + 1 >= row.length || !row[colIndex + 1])) {
-            // URL看起来完整，且后面没有内容了
+          // 只有当确实是最后一行/列时，或者遇到连续多个空单元格时才保存
+          if (isCompleteUrl && colIndex + 1 >= row.length) {
+            // 已经是最后一行了，保存当前URL
             if (currentUrl.startsWith('http')) {
               detailImageUrls.push(currentUrl.trim());
             }

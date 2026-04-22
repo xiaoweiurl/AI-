@@ -34,6 +34,12 @@ public interface ImageRepository extends JpaRepository<Image, String> {
     Page<Image> findByDeletedFalseWithAiTags(Pageable pageable);
 
     /**
+     * 查询未删除的图片（立即加载tags和aiTags）
+     */
+    @Query("SELECT DISTINCT i FROM Image i LEFT JOIN FETCH i.tags LEFT JOIN FETCH i.aiTags WHERE i.deleted = false")
+    Page<Image> findByDeletedFalseWithTagsAndAiTags(Pageable pageable);
+
+    /**
      * 查询未删除的图片
      */
     Page<Image> findByDeletedFalse(Pageable pageable);

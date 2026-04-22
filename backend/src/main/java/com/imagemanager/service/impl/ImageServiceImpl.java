@@ -131,51 +131,28 @@ public class ImageServiceImpl implements ImageService {
                 log.info("所有图片数据完整，跳过更新");
             }
 
-            // 直接查询数据库image_tags表
-            if (jdbcTemplate != null) {
-                try {
-                    List<Map<String, Object>> tagRecords = jdbcTemplate.queryForList("SELECT * FROM image_tags LIMIT 10");
-                    log.info("数据库image_tags表记录数（前10条）: {}", tagRecords.size());
-                    if (!tagRecords.isEmpty()) {
-                        tagRecords.forEach(record -> {
-                            log.info("  - image_id={}, tag={}", record.get("image_id"), record.get("tag"));
-                        });
-                    } else {
-                        log.warn("⚠️⚠️⚠️ 数据库image_tags表为空！");
-                    }
-                } catch (Exception e) {
-                    log.error("查询image_tags表失败: {}", e.getMessage());
-                }
-            }
-
-            // 检查image_ai_tags表
-            if (jdbcTemplate != null) {
-                try {
-                    List<Map<String, Object>> aiTagRecords = jdbcTemplate.queryForList("SELECT * FROM image_ai_tags LIMIT 10");
-                    log.info("数据库image_ai_tags表记录数（前10条）: {}", aiTagRecords.size());
-                    if (!aiTagRecords.isEmpty()) {
-                        aiTagRecords.forEach(record -> {
-                            log.info("  - image_id={}, tag={}", record.get("image_id"), record.get("tag"));
-                        });
-                    } else {
-                        log.warn("⚠️⚠️⚠️ 数据库image_ai_tags表为空！");
-                    }
-                } catch (Exception e) {
-                    log.error("查询image_ai_tags表失败: {}", e.getMessage());
-                }
-            }
-
-            // 使用JPA检查tags字段
-            List<String> allTags = imageRepository.findAllTags();
-            log.info("JPA查询image_tags表中的标签总数: {}, 标签列表: {}", allTags.size(), allTags);
-
-            // 抽样检查前5个图片的tags字段（使用JOIN FETCH立即加载tags）
-            List<Image> sampleImages = imageRepository.findByDeletedFalseWithTags(PageRequest.of(0, 5)).getContent();
-            log.info("抽样检查前5个图片的tags字段:");
+            // 使用JPA查询抽样图片，检查tags和aiTags字段
+            List<Image> sampleImages = imageRepository.findByDeletedFalseWithTagsAndAiTags(PageRequest.of(0, 5)).getContent();
+            log.info("JPA抽样检查前{}个图片的tags和aiTags字段:", sampleImages.size());
             sampleImages.forEach(img -> {
-                log.info("  - Image[id={}, title={}, tags={}]",
+                log.info("  - Image[id={}, title={}, tags={}, aiTags={}]",
                     img.getId(), img.getTitle(),
-                    img.getTags() != null ? img.getTags().toString() : "null");
+                    img.getTags() != null ? img.getTags().toString() : "null",
+                    img.getAiTags() != null ? img.getAiTags().toString() : "null");
+            });
+
+            // 检查是否有图片包含tags或aiTags
+            List<Image> imagesWithTags = imageRepository.findByDeletedFalse().stream()
+                .filter(img -> (img.getTags() != null && !img.getTags().isEmpty()) ||
+                              (img.getAiTags() != null && !img.getAiTags().isEmpty()))
+                .limit(10)
+                .toList();
+            log.info("数据库中有tags或aiTags的图片数量（前10条）: {}", imagesWithTags.size());
+            imagesWithTags.forEach(img -> {
+                log.info("  - Image[id={}, tags={}, aiTags={}]",
+                    img.getId(),
+                    img.getTags() != null ? img.getTags().toString() : "null",
+                    img.getAiTags() != null ? img.getAiTags().toString() : "null");
             });
 
             return;

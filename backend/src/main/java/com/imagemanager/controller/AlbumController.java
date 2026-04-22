@@ -148,7 +148,7 @@ public class AlbumController {
     @GetMapping("/tree")
     @Operation(summary = "获取相册树", description = "获取用户的层级相册结构")
     public ApiResponse<List<Album>> getAlbumTree(
-            @Parameter(description = "用户ID") @RequestParam(required, defaultValue = "user-1") String userId) {
+            @Parameter(description = "用户ID") @RequestParam(required = false, defaultValue = "user-1") String userId) {
         log.info("获取相册树：{}", userId);
         List<Album> albums = albumService.getAlbumTree(userId);
         return ApiResponse.success(albums);

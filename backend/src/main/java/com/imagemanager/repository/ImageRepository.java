@@ -342,4 +342,20 @@ public interface ImageRepository extends JpaRepository<Image, String> {
      */
     @Query("SELECT COALESCE(SUM(i.fileSize), 0) FROM Image i WHERE i.userId = :userId AND i.deleted = false")
     Long sumSizeByUserIdAndDeletedFalse(@Param("userId") String userId);
+
+    /**
+     * 统计用户未删除图片数量
+     */
+    long countByUserIdAndDeletedFalse(String userId);
+
+    /**
+     * 统计所有未删除图片的总大小
+     */
+    @Query("SELECT COALESCE(SUM(i.fileSize), 0) FROM Image i WHERE i.deleted = false")
+    Long sumSizeByDeletedFalse();
+
+    /**
+     * 统计所有未删除图片数量
+     */
+    long countByDeletedFalse();
 }

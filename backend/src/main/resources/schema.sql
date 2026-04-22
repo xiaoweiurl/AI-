@@ -95,35 +95,28 @@ END $$;
 -- ============================================
 -- 3. 检查并添加 albums 表可能缺失的列
 -- ============================================
+-- ============================================
+-- 3. 检查并添加 albums 表可能缺失的列
+-- ============================================
 DO $$
-DECLARE
-    col_count INTEGER;
 BEGIN
     -- matching_config
-    SELECT COUNT(*) INTO col_count FROM information_schema.columns 
-    WHERE table_name = 'albums' AND column_name = 'matching_config';
-    IF col_count = 0 THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'albums' AND column_name = 'matching_config') THEN
         ALTER TABLE albums ADD COLUMN matching_config TEXT;
     END IF;
     
     -- parent_id (支持层级结构)
-    SELECT COUNT(*) INTO col_count FROM information_schema.columns 
-    WHERE table_name = 'albums' AND column_name = 'parent_id';
-    IF col_count = 0 THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'albums' AND column_name = 'parent_id') THEN
         ALTER TABLE albums ADD COLUMN parent_id VARCHAR(36);
     END IF;
     
     -- path (层级路径，如 "松野湃/速干T恤")
-    SELECT COUNT(*) INTO col_count FROM information_schema.columns 
-    WHERE table_name = 'albums' AND column_name = 'path';
-    IF col_count = 0 THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'albums' AND column_name = 'path') THEN
         ALTER TABLE albums ADD COLUMN path VARCHAR(500);
     END IF;
     
     -- full_name (完整显示名称，如 "松野湃-速干T恤")
-    SELECT COUNT(*) INTO col_count FROM information_schema.columns 
-    WHERE table_name = 'albums' AND column_name = 'full_name';
-    IF col_count = 0 THEN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'albums' AND column_name = 'full_name') THEN
         ALTER TABLE albums ADD COLUMN full_name VARCHAR(200);
     END IF;
 END $$;

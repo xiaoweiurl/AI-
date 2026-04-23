@@ -93,6 +93,7 @@ function buildAlbumHierarchy(albums: AlbumInfo[]): MenuItem[] {
     return {
       id: album.id,
       label: album.fullName || album.name,
+      icon: Image as React.ElementType, // 图标组件
       count: album.count,
       children: album.children?.map(child => albumToMenuItem(child)),
     };

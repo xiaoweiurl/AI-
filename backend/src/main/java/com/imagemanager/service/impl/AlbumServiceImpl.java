@@ -381,7 +381,9 @@ public class AlbumServiceImpl implements AlbumService {
                 parentId = parent.getId();
             } else {
                 // 创建新的相册
-                String fullName = i == 0 ? part : (parent != null ? parent.getName() + "-" + part : part);
+                // fullName 只显示当前相册的名称，不包含父级名称
+                // 层级关系通过 parentId 和 path 体现
+                String fullName = part;
                 
                 Album album = Album.builder()
                         .id("album-" + UUID.randomUUID().toString().substring(0, 8))

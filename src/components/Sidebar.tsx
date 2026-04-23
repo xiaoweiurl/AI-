@@ -167,7 +167,7 @@ function SubMenuItem({
         </button>
 
         {/* 删除按钮 */}
-        {showActions && onDelete && !item.isSystem && (
+        {showActions && onDelete && (
           <button
             onClick={(e) => {
               e.stopPropagation();

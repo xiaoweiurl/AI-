@@ -334,7 +334,13 @@ public class ImageController {
         } else if (keyword != null && !keyword.isEmpty()) {
             imagePage = imageRepository.searchByKeyword(keyword, pageRequest);
         } else if (albumId != null && !albumId.isEmpty()) {
-            imagePage = imageRepository.findByAlbumIdAndDeletedFalse(albumId, pageRequest);
+            // 支持逗号分隔的多个相册ID
+            if (albumId.contains(",")) {
+                String[] albumIds = albumId.split(",");
+                imagePage = imageRepository.findByAlbumIdInAndDeletedFalse(java.util.Arrays.asList(albumIds), pageRequest);
+            } else {
+                imagePage = imageRepository.findByAlbumIdAndDeletedFalse(albumId, pageRequest);
+            }
         } else {
             imagePage = imageRepository.findByDeletedFalse(pageRequest);
         }

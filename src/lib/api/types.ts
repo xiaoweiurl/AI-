@@ -48,6 +48,9 @@ export interface ImageItem {
   userId: string;
   deleted: boolean;
   deletedAt?: string;
+  // 浏览和下载统计
+  viewCount?: number;
+  downloadCount?: number;
 }
 
 // 匹配配置类型（与原有分类逻辑一致）

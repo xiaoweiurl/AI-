@@ -210,13 +210,13 @@ export default function ExcelBatchUpload({
         // 按列索引提取数据（根据实际表头）
         // 列A(0): 分类, 列B(1): 商品名称, 列C(2): 价格, 列D(3): 商品详情（主图）, 列E+(4): 详情图
         
-        // 解析分类（支持 URL 编码的中文，如 %CC%F9%C9%ED 格式）
+        // 解析分类 - 直接发送原始值，让后端处理 URL 编码
         const rawCategory = String(row[0] || '').trim();
-        const category = decodeURIComponentSafe(rawCategory);
+        const category = rawCategory; // 不在前端解码，后端统一处理
         
-        // 解析商品名称（支持 URL 编码）
+        // 解析商品名称 - 直接发送原始值，让后端处理 URL 编码
         const rawProductName = String(row[1] || '').trim();
-        const productName = decodeURIComponentSafe(rawProductName);
+        const productName = rawProductName; // 不在前端解码，后端统一处理
         
         // 解析主图链接 - 支持两种格式：
         // 1. Image: [https://xxx.png] 格式

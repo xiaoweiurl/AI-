@@ -30,6 +30,7 @@ public class CharsetUtil {
      * 支持以下格式：
      * 1. 直接的 URL 编码字符串：%CC%F9%C9%ED%B2%E3
      * 2. 完整的 URL：http://xxx?catName=%CC%F9%C9%ED#bd
+     * 3. 带锚点的 URL：http://xxx#anchor
      */
     public static String convertToUtf8(String input) {
         if (input == null || input.isEmpty()) {
@@ -39,36 +40,25 @@ public class CharsetUtil {
         // 首先检查是否是完整的 URL，如果是则提取 catName 参数
         String extractedValue = extractUrlParamValue(input, "catName");
         if (extractedValue != null) {
+            log.info("从URL中提取catName参数: {}", extractedValue);
             input = extractedValue;
-            log.info("从URL中提取catName参数: {}", input);
+        }
+
+        // 移除 URL 锚点（如 #bd）
+        if (input.contains("#")) {
+            input = input.substring(0, input.indexOf("#"));
         }
 
         // 尝试 URL 解码（处理 %CC%F9%C9%ED 格式的 URL 编码）
         String urlDecoded = tryUrlDecode(input);
         if (urlDecoded != null && !urlDecoded.equals(input)) {
             log.info("URL解码成功: {} -> {}", input, urlDecoded);
-            input = urlDecoded;
+            return urlDecoded;
         }
 
-        // 检测是否为乱码
+        // 如果 URL 解码没有成功，尝试乱码修复
         if (looksLikeGarbled(input)) {
             return fixGarbledString(input);
-        }
-
-        // 使用 juniversalchardet 检测编码
-        String detectedCharset = detectCharset(input);
-        if (detectedCharset != null && !detectedCharset.equalsIgnoreCase("UTF-8")) {
-            try {
-                Charset charset = Charset.forName(detectedCharset);
-                byte[] bytes = input.getBytes(StandardCharsets.ISO_8859_1);
-                String converted = new String(bytes, charset);
-                if (isValidChinese(converted)) {
-                    log.debug("编码转换: {} -> UTF-8", detectedCharset);
-                    return converted;
-                }
-            } catch (Exception e) {
-                log.warn("编码转换失败: {} -> {}", detectedCharset, e.getMessage());
-            }
         }
 
         return input;

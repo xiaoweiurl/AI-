@@ -37,6 +37,11 @@ public class CharsetUtil {
             return input;
         }
 
+        // 如果已经是正常的中文字符串，直接返回
+        if (isValidChinese(input)) {
+            return input;
+        }
+
         // 首先检查是否是完整的 URL，如果是则提取 catName 参数
         String extractedValue = extractUrlParamValue(input, "catName");
         if (extractedValue != null) {

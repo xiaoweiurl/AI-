@@ -195,6 +195,16 @@ public class CharsetUtil {
     }
 
     /**
+     * 使用 juniversalchardet 检测字符串的编码
+     */
+    public static String detectCharset(String text) {
+        if (text == null || text.isEmpty()) {
+            return "UTF-8";
+        }
+        return detectCharsetFromBytes(text.getBytes(StandardCharsets.ISO_8859_1));
+    }
+
+    /**
      * 使用 juniversalchardet 检测字节数组的编码
      */
     public static String detectCharsetFromBytes(byte[] bytes) {

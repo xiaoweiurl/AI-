@@ -1260,12 +1260,12 @@ public class ImageServiceImpl implements ImageService {
 
             // 获取或创建商品记录
             Product product = existingProduct.orElse(null);
+            // 处理商品名称的 URL 编码（提前定义，供后续使用）
+            String productName = CharsetUtil.convertToUtf8(item.getProductName());
             if (product == null) {
                 // 商品不存在，创建新记录
                 product = new Product();
                 product.setId(productId);
-                // 处理商品名称的 URL 编码
-                String productName = CharsetUtil.convertToUtf8(item.getProductName());
                 product.setName(productName);
                 product.setDescription(item.getDescription() != null ? CharsetUtil.convertToUtf8(item.getDescription()) : null);
                 product.setCategory(item.getCategory() != null ? CharsetUtil.convertToUtf8(item.getCategory()) : null);
@@ -1281,7 +1281,7 @@ public class ImageServiceImpl implements ImageService {
                 product.setAlbumId(albumId);
                 product.setImageCount(0);
                 product = productRepository.save(product);
-                log.info("复用商品记录重新导入图片: ID={}, 名称={}", product.getId(), item.getProductName());
+                log.info("复用商品记录重新导入图片: ID={}, 名称={}", product.getId(), productName);
             }
 
             // 合并所有需要下载的URL（主图 + 详情图）

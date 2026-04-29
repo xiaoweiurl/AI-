@@ -4,8 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.mozilla.universalchardet.UniversalDetector;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.UnsupportedCharsetException;
 
 /**
  * 字符编码检测与转换工具类
@@ -26,13 +29,21 @@ public class CharsetUtil {
 
     /**
      * 检测字符串的真实编码并转换为 UTF-8
+     * 优先处理 URL 编码的字符串
      */
     public static String convertToUtf8(String input) {
         if (input == null || input.isEmpty()) {
             return input;
         }
 
-        // 首先检测是否为乱码
+        // 首先尝试 URL 解码（处理 %CC%F9%C9%ED 格式的 URL 编码）
+        String urlDecoded = tryUrlDecode(input);
+        if (urlDecoded != null && !urlDecoded.equals(input)) {
+            log.info("URL解码成功: {} -> {}", input, urlDecoded);
+            input = urlDecoded;
+        }
+
+        // 检测是否为乱码
         if (looksLikeGarbled(input)) {
             return fixGarbledString(input);
         }
@@ -57,6 +68,111 @@ public class CharsetUtil {
     }
 
     /**
+     * 尝试 URL 解码
+     * 支持 GBK、GB2312、UTF-8 等编码的 URL 编码字符串
+     */
+    private static String tryUrlDecode(String input) {
+        if (input == null || !input.contains("%")) {
+            return input;
+        }
+
+        // 尝试用 UTF-8 解码
+        try {
+            String decoded = URLDecoder.decode(input, StandardCharsets.UTF_8.name());
+            if (isValidChinese(decoded)) {
+                return decoded;
+            }
+        } catch (Exception e) {
+            // 忽略，继续尝试其他编码
+        }
+
+        // 尝试用 GBK 解码
+        try {
+            String decoded = URLDecoder.decode(input, "GBK");
+            if (isValidChinese(decoded)) {
+                return decoded;
+            }
+        } catch (Exception e) {
+            // 忽略
+        }
+
+        // 尝试用 GB2312 解码
+        try {
+            String decoded = URLDecoder.decode(input, "GB2312");
+            if (isValidChinese(decoded)) {
+                return decoded;
+            }
+        } catch (Exception e) {
+            // 忽略
+        }
+
+        return input;
+    }
+
+    /**
+     * 手动解码 URL 编码的字符串（不依赖 Java 内置解码）
+     * 适用于某些特殊编码情况
+     */
+    public static String manualUrlDecode(String input) {
+        if (input == null || !input.contains("%")) {
+            return input;
+        }
+
+        StringBuilder result = new StringBuilder();
+        int i = 0;
+
+        while (i < input.length()) {
+            char c = input.charAt(i);
+
+            if (c == '%' && i + 2 < input.length()) {
+                // 解析 %XX 格式的字节
+                try {
+                    String hex = input.substring(i + 1, i + 3);
+                    int byteValue = Integer.parseInt(hex, 16);
+                    byte[] bytes = new byte[]{(byte) byteValue};
+
+                    // 尝试用中文编码解读
+                    String decoded = decodeBytesWithChineseCharset(bytes);
+                    if (decoded != null && isValidChinese(decoded)) {
+                        result.append(decoded);
+                        i += 3;
+                        continue;
+                    }
+                } catch (NumberFormatException e) {
+                    // 解析失败，当作普通字符处理
+                }
+            }
+
+            // + 通常表示空格
+            if (c == '+') {
+                result.append(' ');
+            } else {
+                result.append(c);
+            }
+            i++;
+        }
+
+        return result.toString();
+    }
+
+    /**
+     * 用中文编码尝试解码字节数组
+     */
+    private static String decodeBytesWithChineseCharset(byte[] bytes) {
+        for (Charset charset : CHINESE_CHARSETS) {
+            try {
+                String decoded = new String(bytes, charset);
+                if (isValidChinese(decoded)) {
+                    return decoded;
+                }
+            } catch (Exception e) {
+                // 忽略
+            }
+        }
+        return null;
+    }
+
+    /**
      * 检测字节数组的真实编码并转换为 UTF-8
      */
     public static String convertBytesToUtf8(byte[] bytes) {
@@ -76,17 +192,6 @@ public class CharsetUtil {
             log.warn("字节数组编码转换失败: {}", e.getMessage());
             return new String(bytes, StandardCharsets.UTF_8);
         }
-    }
-
-    /**
-     * 使用 juniversalchardet 检测字符串的编码
-     */
-    public static String detectCharset(String text) {
-        if (text == null || text.isEmpty()) {
-            return "UTF-8";
-        }
-
-        return detectCharsetFromBytes(text.getBytes(StandardCharsets.ISO_8859_1));
     }
 
     /**
@@ -166,19 +271,26 @@ public class CharsetUtil {
 
         for (char c : text.toCharArray()) {
             totalCount++;
+            // CJK 统一汉字范围
             if (c >= '\u4E00' && c <= '\u9FFF') {
                 chineseCount++;
             }
+            // CJK 统一汉字扩展范围
             if (c >= '\u3400' && c <= '\u4DBF') {
+                chineseCount++;
+            }
+            // 全角中文标点也算中文
+            if ((c >= '\u3000' && c <= '\u303F') || (c >= '\uFF00' && c <= '\uFFEF')) {
                 chineseCount++;
             }
         }
 
+        // 如果包含超过 20% 的汉字，认为是有效中文
         return totalCount > 0 && chineseCount >= totalCount * 0.2;
     }
 
     /**
-     * 安全获取字符串的UTF-8字节
+     * 安全获取字符串的 UTF-8 字节
      */
     public static byte[] getUtf8Bytes(String text) {
         if (text == null) {

@@ -14,6 +14,7 @@ import com.imagemanager.service.AIRecognitionService;
 import com.imagemanager.service.AlbumService;
 import com.imagemanager.service.ImageService;
 import com.imagemanager.service.StorageService;
+import com.imagemanager.util.CharsetUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -1019,6 +1020,13 @@ public class ImageServiceImpl implements ImageService {
     private String parseHierarchyFromFilename(String filename) {
         if (filename == null || filename.isEmpty()) {
             return null;
+        }
+        
+        // 尝试检测并转换 GB2312/GBK/GB18030 编码的中文字符
+        String convertedFilename = CharsetUtil.convertToUtf8(filename);
+        if (!convertedFilename.equals(filename)) {
+            log.info("文件名编码转换: {} -> {}", filename, convertedFilename);
+            filename = convertedFilename;
         }
         
         // 移除文件扩展名

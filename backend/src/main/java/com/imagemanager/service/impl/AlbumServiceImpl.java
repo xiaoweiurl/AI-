@@ -4,6 +4,7 @@ import com.imagemanager.entity.Album;
 import com.imagemanager.repository.AlbumRepository;
 import com.imagemanager.repository.ImageRepository;
 import com.imagemanager.service.AlbumService;
+import com.imagemanager.util.CharsetUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -361,6 +362,13 @@ public class AlbumServiceImpl implements AlbumService {
     @Override
     public Album getOrCreateAlbumByPath(String fullPath) {
         log.info("根据路径获取或创建相册：{}", fullPath);
+        
+        // 尝试检测并转换 GB2312/GBK/GB18030 编码的中文字符
+        String convertedPath = CharsetUtil.convertToUtf8(fullPath);
+        if (!convertedPath.equals(fullPath)) {
+            log.info("编码转换成功: {} -> {}", fullPath, convertedPath);
+            fullPath = convertedPath;
+        }
         
         String userId = "user-1";
         

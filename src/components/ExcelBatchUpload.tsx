@@ -199,9 +199,20 @@ export default function ExcelBatchUpload({
         const rawProductName = String(row[1] || '').trim();
         const productName = decodeURIComponentSafe(rawProductName);
         
-        // 解析主图链接 - 支持 Image: [链接] 格式
+        // 解析主图链接 - 支持两种格式：
+        // 1. Image: [https://xxx.png] 格式
+        // 2. 直接的 URL: //img.alicdn.com/xxx.jpg
         const rawMainImage = String(row[3] || '').trim();
-        const mainImageUrl = extractImageUrls(rawMainImage)[0] || '';
+        let mainImageUrl = '';
+        
+        // 尝试提取 Image: [URL] 格式
+        const imageUrls = extractImageUrls(rawMainImage);
+        if (imageUrls.length > 0) {
+          mainImageUrl = imageUrls[0];
+        } else if (rawMainImage.startsWith('//') || rawMainImage.startsWith('http')) {
+          // 直接是 URL 格式
+          mainImageUrl = rawMainImage.startsWith('//') ? 'https:' + rawMainImage : rawMainImage;
+        }
         
         // 收集详情图URL（从E列开始，索引4）
         // 支持 Image: [URL] 格式和直接 URL 格式

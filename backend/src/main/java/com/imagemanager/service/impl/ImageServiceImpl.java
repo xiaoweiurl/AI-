@@ -1188,7 +1188,8 @@ public class ImageServiceImpl implements ImageService {
             String albumId = null;
             String albumName = null;
             if (item.getCategory() != null && !item.getCategory().isEmpty()) {
-                String category = item.getCategory().trim();
+                // 尝试解析 URL 编码的中文字符（如 %CC%F9%C9%ED 格式）
+                String category = CharsetUtil.convertToUtf8(item.getCategory().trim());
                 log.info("Excel导入 - 处理分类: {}, 父相册: {}", category, parentAlbumName);
                 
                 // 构建完整层级路径：如果有父相册名称，分类在父相册下创建
@@ -1200,6 +1201,8 @@ public class ImageServiceImpl implements ImageService {
                     if (dotIndex > 0) {
                         cleanParentName = cleanParentName.substring(0, dotIndex);
                     }
+                    // 处理父相册名称的 URL 编码
+                    cleanParentName = CharsetUtil.convertToUtf8(cleanParentName);
                     fullCategoryPath = cleanParentName + "/" + category;
                     log.info("Excel导入 - 构建层级路径: {}", fullCategoryPath);
                 }
@@ -1261,18 +1264,20 @@ public class ImageServiceImpl implements ImageService {
                 // 商品不存在，创建新记录
                 product = new Product();
                 product.setId(productId);
-                product.setName(item.getProductName());
-                product.setDescription(item.getDescription());
-                product.setCategory(item.getCategory());
+                // 处理商品名称的 URL 编码
+                String productName = CharsetUtil.convertToUtf8(item.getProductName());
+                product.setName(productName);
+                product.setDescription(item.getDescription() != null ? CharsetUtil.convertToUtf8(item.getDescription()) : null);
+                product.setCategory(item.getCategory() != null ? CharsetUtil.convertToUtf8(item.getCategory()) : null);
                 product.setAlbumId(albumId);
                 product.setUserId("user-1"); // 默认用户
                 product.setImageCount(0);
                 product = productRepository.save(product);
-                log.info("创建商品记录: ID={}, 名称={}, 分类={}", productId, item.getProductName(), item.getCategory());
+                log.info("创建商品记录: ID={}, 名称={}, 分类={}", productId, productName, item.getCategory());
             } else {
                 // 商品存在但图片已删除，更新分类等信息
-                product.setDescription(item.getDescription());
-                product.setCategory(item.getCategory());
+                product.setDescription(item.getDescription() != null ? CharsetUtil.convertToUtf8(item.getDescription()) : null);
+                product.setCategory(item.getCategory() != null ? CharsetUtil.convertToUtf8(item.getCategory()) : null);
                 product.setAlbumId(albumId);
                 product.setImageCount(0);
                 product = productRepository.save(product);
@@ -1375,7 +1380,7 @@ public class ImageServiceImpl implements ImageService {
 
                         // 创建文件名：商品名称 + (序号) + 扩展名
                         String extension = getFileExtensionFromUrl(imageUrl);
-                        String fileName = sanitizeFileName(item.getProductName());
+                        String fileName = sanitizeFileName(productName);
                         if (totalImages > 1) {
                             fileName += (isMainImage ? "" : "_" + i);
                         }
@@ -1395,7 +1400,7 @@ public class ImageServiceImpl implements ImageService {
                         
                         // 更新商品相关信息
                         if (image != null) {
-                            image.setTitle(item.getProductName());
+                            image.setTitle(productName);
                             image.setProductId(productId);
                             image.setIsMainImage(isMainImage);
                             image.setDisplayOrder(isMainImage ? 0 : i); // 主图在前，详情图按顺序

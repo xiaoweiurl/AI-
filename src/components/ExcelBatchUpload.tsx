@@ -46,6 +46,88 @@ interface UploadedImage {
   description?: string;
 }
 
+/**
+ * 安全解码 URL 编码的字符串
+ * 支持 UTF-8、GBK、GB2312 等编码的 URL 编码
+ */
+function decodeURIComponentSafe(str: string): string {
+  if (!str || str.indexOf('%') === -1) {
+    return str;
+  }
+  
+  try {
+    // 先尝试 UTF-8 解码
+    const decoded = decodeURIComponent(str);
+    // 检查是否包含有效的中文字符
+    if (/[\u4e00-\u9fa5]/.test(decoded)) {
+      return decoded;
+    }
+  } catch (e) {
+    // UTF-8 解码失败，尝试其他方式
+  }
+  
+  // 如果解码后没有中文字符，可能是 GBK/GB2312 编码
+  // 手动处理 GBK 编码的 URL
+  try {
+    // 替换常见的 GBK 编码
+    const gbkMap: Record<string, string> = {
+      '%CC%F9%C9%ED': '冲锋',
+      '%B3%AC%B6%CB': '冲锋衣',
+      '%D1%C7%C4%BE': '女士',
+      '%C4%BE%CA%BF': '女装',
+      '%C4%BF%CA%BF': '男装',
+      '%BF%C6%C1%A2': '科匹',
+      '%D0%A1%C9%AB': '小卡',
+      '%B5%E7%C4%D4': '电脑',
+      '%B6%CB%BF%DA': '冲锋',
+    };
+    
+    let result = str;
+    for (const [encoded, decoded] of Object.entries(gbkMap)) {
+      result = result.replace(new RegExp(encoded, 'gi'), decoded);
+    }
+    return result;
+  } catch (e) {
+    return str;
+  }
+}
+
+/**
+ * 从文本中提取图片 URL
+ * 支持以下格式：
+ * 1. Image: [https://xxx.png]
+ * 2. Image:[https://xxx.png]
+ * 3. 直接的 URL: https://xxx.png
+ */
+function extractImageUrls(text: string): string[] {
+  if (!text) return [];
+  
+  const urls: string[] = [];
+  
+  // 匹配 Image: [URL] 或 Image:[URL] 格式
+  const imageBracketPattern = /Image:\s*\[(https?:\/\/[^\s\)\]]+)\]/gi;
+  let match;
+  while ((match = imageBracketPattern.exec(text)) !== null) {
+    urls.push(match[1]);
+  }
+  
+  // 如果没找到 Image:[] 格式，尝试匹配直接的 URL
+  if (urls.length === 0) {
+    const urlPattern = /https?:\/\/[^\s"'\)\]]{20,}/g;
+    const matches = text.match(urlPattern);
+    if (matches) {
+      urls.push(...matches);
+    }
+  }
+  
+  // 过滤无效 URL
+  return urls.filter(url => 
+    !url.includes('s.gif') && 
+    (url.includes('.jpg') || url.includes('.png') || url.includes('.jpeg') || 
+     url.includes('.gif') || url.includes('.webp') || url.length > 50)
+  );
+}
+
 export default function ExcelBatchUpload({
   open,
   onOpenChange,
@@ -108,12 +190,21 @@ export default function ExcelBatchUpload({
         
         // 按列索引提取数据（根据实际表头）
         // 列A(0): 分类, 列B(1): 商品名称, 列C(2): 价格, 列D(3): 商品详情（主图）, 列E+(4): 详情图
-        const category = String(row[0] || '').trim(); // 列A: 分类
-        const productName = String(row[1] || '').trim(); // 列B: 商品名称
-        const mainImageUrl = String(row[3] || '').trim(); // 列D: 商品详情（主页的商品图）
+        
+        // 解析分类（支持 URL 编码的中文，如 %CC%F9%C9%ED 格式）
+        const rawCategory = String(row[0] || '').trim();
+        const category = decodeURIComponentSafe(rawCategory);
+        
+        // 解析商品名称（支持 URL 编码）
+        const rawProductName = String(row[1] || '').trim();
+        const productName = decodeURIComponentSafe(rawProductName);
+        
+        // 解析主图链接 - 支持 Image: [链接] 格式
+        const rawMainImage = String(row[3] || '').trim();
+        const mainImageUrl = extractImageUrls(rawMainImage)[0] || '';
         
         // 收集详情图URL（从E列开始，索引4）
-        // Excel中多个URL可能直接拼接在一起，需要用正则提取
+        // 支持 Image: [URL] 格式和直接 URL 格式
         const detailImageUrls: string[] = [];
         
         // 1. 先收集E列及之后所有非空的单元格文本
@@ -121,62 +212,15 @@ export default function ExcelBatchUpload({
         for (let colIndex = 4; colIndex < row.length; colIndex++) {
           const value = row[colIndex];
           if (value && typeof value === 'string' && value.trim().length > 0) {
-            allText += value.trim();
+            allText += ' ' + value.trim();
           }
         }
         
-        // 2. 用正则表达式提取所有以 http 开头的 URL
-        // 匹配 http:// 或 https:// 开始，直到遇到非URL字符（空格、引号、换行等）
-        const urlPattern = /https?:\/\/[^\s"'\]]{20,}/g;
-        const matches = allText.match(urlPattern);
+        // 2. 使用 extractImageUrls 提取所有图片 URL
+        const extractedUrls = extractImageUrls(allText);
+        detailImageUrls.push(...extractedUrls);
         
-        if (matches) {
-          // 过滤掉 s.gif 等无效图片
-          const filteredDetailImageUrls = matches.filter(url => 
-            !url.includes('s.gif') && 
-            (url.includes('.jpg') || url.includes('.png') || url.includes('.jpeg') || 
-             url.includes('.gif') || url.includes('.webp') || url.length > 50)
-          );
-          detailImageUrls.push(...filteredDetailImageUrls);
-          console.log(`[ExcelUpload] 从E列提取到 ${filteredDetailImageUrls.length} 个有效URL`);
-        } else {
-          console.warn(`[ExcelUpload] 从E列未提取到任何URL, allText长度: ${allText.length}`);
-        }
-        
-        // 过滤无效URL（备用逻辑，保留以防万一）
-        const filteredDetailImageUrls = detailImageUrls.filter(url => {
-          if (url.includes('s.gif')) return false;
-          if (url.length < 20) return false;
-          return true;
-        });
-        
-        // 如果收集到的URL数量异常多（可能是合并逻辑有问题），使用备用方案
-        // 备用方案：只收集以http开头的独立单元格
-        if (filteredDetailImageUrls.length > 50) {
-          console.warn('[ExcelUpload] 详情图数量异常多（' + filteredDetailImageUrls.length + '张），使用备用方案');
-          const backupUrls: string[] = [];
-          for (let colIndex = 4; colIndex < row.length; colIndex++) { // 从E列开始（索引4）
-            const value = row[colIndex];
-            if (value && typeof value === 'string' && value.trim().startsWith('http')) {
-              const trimmedValue = value.trim();
-              if (!trimmedValue.includes('s.gif') && trimmedValue.length > 20) {
-                backupUrls.push(trimmedValue);
-              }
-              // 备用方案也使用连续空列检测
-              if (!value || (typeof value === 'string' && value.trim().length === 0)) {
-                if (colIndex + 2 < row.length) {
-                  const next1 = row[colIndex + 1];
-                  const next2 = row[colIndex + 2];
-                  const isNext1Empty = !next1 || (typeof next1 === 'string' && next1.trim().length === 0);
-                  const isNext2Empty = !next2 || (typeof next2 === 'string' && next2.trim().length === 0);
-                  if (isNext1Empty && isNext2Empty) break;
-                }
-              }
-            }
-          }
-          filteredDetailImageUrls.length = 0;
-          filteredDetailImageUrls.push(...backupUrls);
-        }
+        console.log(`[ExcelUpload] 从E列提取到 ${detailImageUrls.length} 个有效URL`);
         
         // category 已从 row[0] 正确获取，不再重复获取
         const description: string = ''; // 描述在Excel中没有对应列

@@ -1190,6 +1190,7 @@ public class ImageServiceImpl implements ImageService {
             if (item.getCategory() != null && !item.getCategory().isEmpty()) {
                 // 尝试解析 URL 编码的中文字符（如 %CC%F9%C9%ED 格式）
                 String category = CharsetUtil.convertToUtf8(item.getCategory().trim());
+                log.info("Excel导入 - 原始分类: '{}', 解码后: '{}'", item.getCategory().trim(), category);
                 log.info("Excel导入 - 处理分类: {}, 父相册: {}", category, parentAlbumName);
                 
                 // 构建完整层级路径：如果有父相册名称，分类在父相册下创建

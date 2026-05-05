@@ -110,11 +110,15 @@ public class ProductController {
                 }
             }
 
-            // 简化查询：如果没有筛选条件，直接查询所有主图
+            // 根据是否有商品筛选条件，选择不同的查询方法
             if (productIds != null) {
-                result = imageRepository.findByProductIdInAndIsMainImageAndDeleted(productIds, true, false, pageRequest);
+                result = imageRepository.findByProductIdInAndFilters(
+                    productIds, startDate, contentType, true, false, pageRequest
+                );
             } else {
-                result = imageRepository.findByIsMainImageAndDeleted(true, false, pageRequest);
+                result = imageRepository.findByFilters(
+                    startDate, contentType, true, false, pageRequest
+                );
             }
         }
 

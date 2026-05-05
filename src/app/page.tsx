@@ -612,7 +612,20 @@ export default function Home() {
       } else {
         // 全部图片 - 使用商品主图API
         params.append('includeDeleted', 'false');
-        // 添加筛选条件
+        
+        // 添加日期筛选
+        if (filterState.dateFilter && filterState.dateFilter !== 'all') {
+          params.append('dateFilter', filterState.dateFilter);
+          console.log('[Home] 添加日期筛选:', filterState.dateFilter);
+        }
+        
+        // 添加文件类型筛选
+        if (filterState.typeFilter && filterState.typeFilter !== 'all') {
+          params.append('fileType', filterState.typeFilter);
+          console.log('[Home] 添加文件类型筛选:', filterState.typeFilter);
+        }
+        
+        // 添加相册筛选
         if (filterState.albumFilter !== 'all') {
           // 转换相册ID到分类名称
           const categoryName = mockAlbums.find(a => a.id === filterState.albumFilter)?.name || '';
@@ -708,7 +721,7 @@ export default function Home() {
     } finally {
       setLoadingMore(false);
     }
-  }, [pageSize, activeMenuItem, filterState.albumFilter, filterState.tagFilter]);
+  }, [pageSize, activeMenuItem, filterState.albumFilter, filterState.tagFilter, filterState.dateFilter, filterState.typeFilter]);
   
   // 获取标签列表
   const fetchTags = React.useCallback(async () => {

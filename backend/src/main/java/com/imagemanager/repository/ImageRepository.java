@@ -223,6 +223,33 @@ public interface ImageRepository extends JpaRepository<Image, String> {
     Page<Image> findByProductIdInAndIsMainImageAndDeleted(List<String> productIds, boolean isMainImage, boolean deleted, Pageable pageable);
 
     /**
+     * 根据商品ID列表、日期和文件类型筛选查询主图
+     */
+    @Query("SELECT i FROM Image i WHERE i.productId IN :productIds AND i.isMainImage = :isMainImage AND i.deleted = :deleted " +
+           "AND (:startDate IS NULL OR i.createdAt >= :startDate) " +
+           "AND (:contentType IS NULL OR i.contentType = :contentType)")
+    Page<Image> findByProductIdInAndFilters(
+        @Param("productIds") List<String> productIds,
+        @Param("startDate") LocalDateTime startDate,
+        @Param("contentType") String contentType,
+        @Param("isMainImage") boolean isMainImage,
+        @Param("deleted") boolean deleted,
+        Pageable pageable);
+
+    /**
+     * 根据日期和文件类型筛选查询主图
+     */
+    @Query("SELECT i FROM Image i WHERE i.isMainImage = :isMainImage AND i.deleted = :deleted " +
+           "AND (:startDate IS NULL OR i.createdAt >= :startDate) " +
+           "AND (:contentType IS NULL OR i.contentType = :contentType)")
+    Page<Image> findByFilters(
+        @Param("startDate") LocalDateTime startDate,
+        @Param("contentType") String contentType,
+        @Param("isMainImage") boolean isMainImage,
+        @Param("deleted") boolean deleted,
+        Pageable pageable);
+
+    /**
      * 根据商品ID列表查询所有图片
      */
     Page<Image> findByProductIdIn(List<String> productIds, Pageable pageable);

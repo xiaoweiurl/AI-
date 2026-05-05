@@ -48,41 +48,78 @@ public class ProductController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
             @Parameter(description = "每页大小") @RequestParam(defaultValue = "20") Integer pageSize,
             @Parameter(description = "分类筛选") @RequestParam(required = false) String category,
-            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword) {
-        log.info("获取商品主图列表，页码: {}, 每页: {}, 分类: {}, 关键词: {}", page, pageSize, category, keyword);
+            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "日期筛选: all/today/week/month") @RequestParam(required = false) String dateFilter,
+            @Parameter(description = "文件类型筛选: all/jpg/png/gif") @RequestParam(required = false) String fileType) {
+        log.info("获取商品主图列表，页码: {}, 每页: {}, 分类: {}, 关键词: {}, 日期筛选: {}, 类型筛选: {}", 
+                page, pageSize, category, keyword, dateFilter, fileType);
 
         PageRequest pageRequest = PageRequest.of(page - 1, pageSize, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         // 构建查询条件
         Page<Image> result;
 
+        // 先获取符合条件的商品ID
+        List<String> productIds = null;
         if (keyword != null && !keyword.isEmpty()) {
-            // 按商品名称搜索
             List<Product> products = productRepository.searchByName("user-1", keyword);
-            List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
-
-            if (productIds.isEmpty()) {
-                result = Page.empty(pageRequest);
-            } else {
-                result = imageRepository.findByProductIdInAndIsMainImageAndDeleted(
-                    productIds, true, false, pageRequest
-                );
-            }
+            productIds = products.stream().map(Product::getId).collect(Collectors.toList());
         } else if (category != null && !category.isEmpty()) {
-            // 按分类筛选
             List<Product> products = productRepository.findByUserIdAndCategory("user-1", category);
-            List<String> productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+            productIds = products.stream().map(Product::getId).collect(Collectors.toList());
+        }
 
-            if (productIds.isEmpty()) {
-                result = Page.empty(pageRequest);
+        // 如果有商品筛选条件但结果为空
+        if (productIds != null && productIds.isEmpty()) {
+            result = Page.empty(pageRequest);
+        } else {
+            // 构建日期筛选条件
+            java.time.LocalDateTime startDate = null;
+            if (dateFilter != null && !dateFilter.isEmpty() && !"all".equals(dateFilter)) {
+                java.time.LocalDateTime now = java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Shanghai"));
+                switch (dateFilter) {
+                    case "today":
+                        startDate = now.toLocalDate().atStartOfDay();
+                        break;
+                    case "week":
+                        startDate = now.minusDays(7);
+                        break;
+                    case "month":
+                        startDate = now.minusDays(30);
+                        break;
+                }
+            }
+
+            // 构建文件类型筛选条件
+            String contentType = null;
+            if (fileType != null && !fileType.isEmpty() && !"all".equals(fileType)) {
+                switch (fileType.toLowerCase()) {
+                    case "jpg":
+                    case "jpeg":
+                        contentType = "image/jpeg";
+                        break;
+                    case "png":
+                        contentType = "image/png";
+                        break;
+                    case "gif":
+                        contentType = "image/gif";
+                        break;
+                    case "webp":
+                        contentType = "image/webp";
+                        break;
+                }
+            }
+
+            // 调用 repository 查询
+            if (productIds != null) {
+                result = imageRepository.findByProductIdInAndFilters(
+                    productIds, startDate, contentType, true, false, pageRequest
+                );
             } else {
-                result = imageRepository.findByProductIdInAndIsMainImageAndDeleted(
-                    productIds, true, false, pageRequest
+                result = imageRepository.findByFilters(
+                    startDate, contentType, true, false, pageRequest
                 );
             }
-        } else {
-            // 获取所有主图
-            result = imageRepository.findByIsMainImageAndDeleted(true, false, pageRequest);
         }
 
         PageResponse<Image> response = PageResponse.of(

@@ -212,19 +212,20 @@ export default function ExcelBatchUpload({
         
         // 解析分类层级 - 根据实际数据结构：
         // 文件名(X-BIONIC) = 第一层父相册
-        // A列(男士专区) = 第二层子相册
-        // B列(功能内衣) = 第三层子相册
-        // 完整路径: X-BIONIC-男士专区-功能内衣
+        // A列值(功能内衣_男士专区_) = 用下划线分隔的子相册
+        // 完整路径: X-BIONIC-功能内衣-男士专区
         const firstLevel = excelFileNameRef.current ? excelFileNameRef.current.replace(/\.xlsx$/i, '') : '';
-        const secondLevel = String(row[0] || '').trim(); // A列
-        const thirdLevel = String(row[1] || '').trim(); // B列
+        const categoryColumn = String(row[0] || '').trim(); // A列: 功能内衣_男士专区_
         
-        // 构建完整分类路径
-        const categoryParts = [firstLevel, secondLevel, thirdLevel].filter(part => part);
-        const category = categoryParts.join('-'); // 用 - 连接: X-BIONIC-男士专区-功能内衣
+        // 分割类别列（下划线分隔），过滤空值
+        const subCategories = categoryColumn.split('_').map(s => s.trim()).filter(s => s);
         
-        // 商品名称 - A列是子分类，不是商品名称，B列才是商品名称
-        const rawProductName = String(row[2] || '').trim(); // C列才是商品名称
+        // 构建完整分类路径: X-BIONIC-功能内衣-男士专区
+        const categoryParts = [firstLevel, ...subCategories];
+        const category = categoryParts.join('-');
+        
+        // 商品名称 - B列才是商品名称
+        const rawProductName = String(row[1] || '').trim(); // B列
         const productName = rawProductName; // 不在前端解码，后端统一处理
         
         // 解析主图链接 - 支持两种格式：

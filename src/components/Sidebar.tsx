@@ -1259,10 +1259,10 @@ export default function Sidebar({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>批量删除相册</DialogTitle>
-            <DialogDescription>
-              确定要删除选中的 {selectedAlbumIds.size} 个相册吗？
+            <DialogDescription className="text-left">
+              你确定要删除选中的相册以及下面的子相册和图片吗？
               <span className="block mt-2 text-slate-500">
-                此操作不可恢复。有子相册或包含图片的相册无法删除。
+                此操作将删除所有选中的相册、其子相册以及相册中的图片，且不可恢复。
               </span>
             </DialogDescription>
           </DialogHeader>

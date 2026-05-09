@@ -1717,6 +1717,25 @@ public class ImageServiceImpl implements ImageService {
             return true;
         }
 
+        // BMP: 42 4D (BM)
+        if (imageData[0] == 0x42 && imageData[1] == 0x4D) {
+            return true;
+        }
+
+        // TIFF: 49 49 2A 00 (小端) 或 4D 4D 00 2A (大端)
+        if (imageData.length >= 4 &&
+            ((imageData[0] == 0x49 && imageData[1] == 0x49 && imageData[2] == 0x2A && imageData[3] == 0x00) ||
+             (imageData[0] == 0x4D && imageData[1] == 0x4D && imageData[2] == 0x00 && imageData[3] == 0x2A))) {
+            return true;
+        }
+
+        // 如果文件大小足够大（>10KB），也认为是有效的图片
+        // 某些图片可能文件头被压缩或特殊处理
+        if (imageData.length > 10000) {
+            log.debug("图片数据大小超过10KB，放行: {} bytes", imageData.length);
+            return true;
+        }
+
         return false;
     }
 

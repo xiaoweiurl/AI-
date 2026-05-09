@@ -462,7 +462,7 @@ public class ImageServiceImpl implements ImageService {
                     .deleted(false)
                     .viewCount(0)
                     .downloadCount(0)
-                    .originalUrl(originalUrl != null ? originalUrl : imageUrl)
+                    .originalUrl(imageUrl)
                     .build();
             
             image = imageRepository.save(image);
@@ -912,7 +912,7 @@ public class ImageServiceImpl implements ImageService {
                     .deleted(false)
                     .viewCount(0)
                     .downloadCount(0)
-                    .originalUrl(originalUrl != null ? originalUrl : imageUrl)
+                    .originalUrl(imageUrl)
                     .build();
             
             image = imageRepository.save(image);

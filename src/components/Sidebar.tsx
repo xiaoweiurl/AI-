@@ -30,8 +30,8 @@ import {
   Archive,
   File,
   ChevronRight,
-  Checkbox,
   Square,
+  CheckSquare,
   Trash,
 } from 'lucide-react';
 import {
@@ -842,7 +842,7 @@ export default function Sidebar({
                           title="批量选择"
                         >
                           {batchSelectMode ? (
-                            <Checkbox className="w-3.5 h-3.5" />
+                            <CheckSquare className="w-3.5 h-3.5" />
                           ) : (
                             <Square className="w-3.5 h-3.5" />
                           )}
@@ -963,6 +963,7 @@ export default function Sidebar({
                           </DialogFooter>
                         </DialogContent>
                       </Dialog>
+                      </div>
                     )}
                     {/* 批量重置按钮 */}
                     {!collapsed && item.showAddButton && (

@@ -1497,7 +1497,7 @@ public class ImageServiceImpl implements ImageService {
      * 上传单张图片并使用AI分析（带自定义参数）
      */
     private Image uploadSingleImageWithAI(MultipartFile file, List<Album> albums, 
-            String originalFilename, String albumId, List<String> tags) {
+            String originalFilename, String albumId, List<String> tags, String originalUrl) {
         try {
             String imageUrl;
             String fileKey = null;

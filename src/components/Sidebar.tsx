@@ -388,15 +388,15 @@ export default function Sidebar({
         return;
       }
       
-      if (result.success) {
-        const successCount = result.data?.successCount || 0;
+      if (result.code === 200) {
+        const successCount = result.data?.deletedAlbumCount || 0;
         // 关闭对话框
         setIsBatchDeleteDialogOpen(false);
         
         const failCount = result.data?.failCount || 0;
         
-        // 显示成功提示
-        toast(`成功删除 ${successCount} 个相册`, {
+        // 显示成功提示（绿色）
+        toast(`批量删除完成，成功删除 ${successCount} 个相册`, {
           style: { background: '#22c55e', color: 'white' },
         });
         

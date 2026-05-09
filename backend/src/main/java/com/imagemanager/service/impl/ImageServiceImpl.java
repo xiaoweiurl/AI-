@@ -1141,6 +1141,7 @@ public class ImageServiceImpl implements ImageService {
                 log.warn("商品名称为空，跳过");
                 com.imagemanager.dto.BatchDownloadResponse emptyResponse = new com.imagemanager.dto.BatchDownloadResponse();
                 emptyResponse.setSuccess(false);
+                emptyResponse.setSkipped(false);
                 emptyResponse.setError("商品名称不能为空");
                 results.add(emptyResponse);
                 continue;
@@ -1301,6 +1302,7 @@ public class ImageServiceImpl implements ImageService {
                 log.warn("商品 {} 没有有效的图片URL，跳过", item.getProductName());
                 com.imagemanager.dto.BatchDownloadResponse emptyResponse = new com.imagemanager.dto.BatchDownloadResponse();
                 emptyResponse.setSuccess(false);
+                emptyResponse.setSkipped(false);
                 emptyResponse.setError("没有有效的图片URL");
                 results.add(emptyResponse);
                 continue;
@@ -1341,6 +1343,7 @@ public class ImageServiceImpl implements ImageService {
                     if (responseCode != 200) {
                         log.error("下载图片失败: {}, HTTP状态码: {}", imageUrl, responseCode);
                         response.setSuccess(false);
+                        response.setSkipped(false);
                         response.setError("HTTP " + responseCode);
                         results.add(response);
                         continue;
@@ -1373,6 +1376,7 @@ public class ImageServiceImpl implements ImageService {
                         if (imageData.length == 0) {
                             log.error("下载的图片数据为空: {}", imageUrl);
                             response.setSuccess(false);
+                            response.setSkipped(false);
                             response.setError("下载的图片数据为空");
                             results.add(response);
                             continue;
@@ -1383,6 +1387,7 @@ public class ImageServiceImpl implements ImageService {
                             log.error("下载的数据不是有效的图片格式: {}, 文件头: {}",
                                 imageUrl, bytesToHex(imageData, 0, Math.min(16, imageData.length)));
                             response.setSuccess(false);
+                            response.setSkipped(false);
                             response.setError("下载的数据不是有效的图片格式");
                             results.add(response);
                             continue;
@@ -1429,12 +1434,14 @@ public class ImageServiceImpl implements ImageService {
                             }
                         } else {
                             response.setSuccess(false);
+                            response.setSkipped(false);
                             response.setError("上传失败");
                         }
                     }
                 } catch (Exception e) {
                     log.error("下载图片失败: {}, 错误: {}", imageUrl, e.getMessage());
                     response.setSuccess(false);
+                    response.setSkipped(false);
                     response.setError(e.getMessage());
                 }
                 

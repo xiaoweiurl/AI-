@@ -462,6 +462,7 @@ public class ImageServiceImpl implements ImageService {
                     .deleted(false)
                     .viewCount(0)
                     .downloadCount(0)
+                    .originalUrl(imageUrl)
                     .build();
             
             image = imageRepository.save(image);
@@ -911,6 +912,7 @@ public class ImageServiceImpl implements ImageService {
                     .deleted(false)
                     .viewCount(0)
                     .downloadCount(0)
+                    .originalUrl(imageUrl)
                     .build();
             
             image = imageRepository.save(image);
@@ -1318,7 +1320,7 @@ public class ImageServiceImpl implements ImageService {
                 
                 try {
                     // 检查图片URL是否已存在，避免重复下载
-                    if (imageRepository.existsByUrlAndDeletedFalse(imageUrl)) {
+                    if (imageRepository.existsByOriginalUrlAndDeletedFalse(imageUrl)) {
                         log.info("图片URL已存在，跳过: {}", imageUrl);
                         response.setSuccess(true);
                         response.setSkipped(true);
@@ -1601,6 +1603,7 @@ public class ImageServiceImpl implements ImageService {
                     .deleted(false)
                     .viewCount(0)
                     .downloadCount(0)
+                    .originalUrl(imageUrl)
                     .build();
             
             image = imageRepository.save(image);

@@ -55,6 +55,12 @@ public class Image {
     private String url;
     
     /**
+     * 图片原始URL（导入时的原始链接）
+     */
+    @Column(length = 500)
+    private String originalUrl;
+    
+    /**
      * 图片缩略图URL
      */
     @Column(length = 500)

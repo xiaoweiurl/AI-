@@ -288,6 +288,11 @@ public interface ImageRepository extends JpaRepository<Image, String> {
     /**
      * 根据URL检查图片是否已存在（未删除）
      */
+    /**
+     * 按原始URL检查图片是否已存在
+     */
+    boolean existsByOriginalUrlAndDeletedFalse(String originalUrl);
+
     boolean existsByUrlAndDeletedFalse(String url);
     
     // ==================== 高级搜索查询方法 ====================

@@ -211,6 +211,7 @@ public class AlbumServiceImpl implements AlbumService {
     }
     
     @Override
+    @Transactional
     public Map<String, Object> batchDeleteAlbums(List<String> ids) {
         log.info("批量删除相册（级联删除），数量：{}", ids.size());
         
@@ -257,7 +258,8 @@ public class AlbumServiceImpl implements AlbumService {
      * @param processedAlbumIds 已处理的相册ID集合（防止重复处理）
      * @return int[] [删除的相册数, 删除的图片数]
      */
-    private int[] deleteAlbumRecursively(String albumId, Set<String> processedAlbumIds) {
+    @Transactional
+    public int[] deleteAlbumRecursively(String albumId, Set<String> processedAlbumIds) {
         if (processedAlbumIds.contains(albumId)) {
             return new int[]{0, 0};
         }

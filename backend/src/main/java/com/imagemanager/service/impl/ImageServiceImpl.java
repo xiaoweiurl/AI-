@@ -1475,16 +1475,16 @@ public class ImageServiceImpl implements ImageService {
             updateAlbumImageCount(albumId);
         }
         
-        long successCountTotal = results.stream().filter(r -> r.getSuccess() && !r.getSkipped()).count();
-        long skippedCount = results.stream().filter(r -> r.getSkipped()).count();
-        long failedCount = results.stream().filter(r -> !r.getSuccess()).count();
+        long successCountTotal = results.stream().filter(r -> Boolean.TRUE.equals(r.getSuccess()) && !Boolean.TRUE.equals(r.getSkipped())).count();
+        long skippedCount = results.stream().filter(r -> Boolean.TRUE.equals(r.getSkipped())).count();
+        long failedCount = results.stream().filter(r -> !Boolean.TRUE.equals(r.getSuccess())).count();
         log.info("批量下载完成，成功：{} 张，跳过（已存在）：{} 张，失败：{} 张", 
             successCountTotal, skippedCount, failedCount);
         
         // 如果有失败，打印失败原因
         if (failedCount > 0) {
             for (var resp : results) {
-                if (!resp.getSuccess() && !resp.getSkipped()) {
+                if (!Boolean.TRUE.equals(resp.getSuccess()) && !Boolean.TRUE.equals(resp.getSkipped())) {
                     log.warn("下载失败 - URL: {}, 错误: {}", resp.getOriginalUrl(), resp.getError());
                 }
             }

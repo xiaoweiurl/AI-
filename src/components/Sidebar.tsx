@@ -30,6 +30,9 @@ import {
   Archive,
   File,
   ChevronRight,
+  Checkbox,
+  Square,
+  Trash,
 } from 'lucide-react';
 import {
   Dialog,
@@ -114,17 +117,27 @@ function SubMenuItem({
   onItemClick,
   onDelete,
   level = 1,
+  batchSelectMode = false,
+  selectedIds = new Set<string>(),
+  onToggleSelect,
+  selectable = true,
 }: {
   item: MenuItem;
   activeItem: string;
   onItemClick: (id: string) => void;
   onDelete?: (item: MenuItem, e: React.MouseEvent) => void;
   level?: number;
+  batchSelectMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  selectable?: boolean;
 }) {
   const hasChildren = item.children && item.children.length > 0;
   const [isExpanded, setIsExpanded] = React.useState(level <= 1);
   const isActive = activeItem === item.id;
   const [showActions, setShowActions] = React.useState(false);
+  const isSelected = selectedIds.has(item.id);
+  const isSelectable = selectable && !item.isSystem;
 
   return (
     <div>
@@ -134,14 +147,37 @@ function SubMenuItem({
           level > 0 ? 'px-3 py-1.5' : 'px-3 py-2',
           isActive
             ? 'bg-violet-50 text-violet-700 font-medium'
-            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-700',
+          batchSelectMode && isSelectable && 'cursor-pointer'
         )}
         style={{ paddingLeft: `${level > 0 ? level * 12 + 12 : 12}px` }}
         onMouseEnter={() => setShowActions(true)}
         onMouseLeave={() => setShowActions(false)}
       >
+        {/* 批量选择复选框 */}
+        {batchSelectMode && isSelectable && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.(item.id);
+            }}
+            className={cn(
+              'flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+              isSelected
+                ? 'bg-violet-600 border-violet-600'
+                : 'border-slate-300 hover:border-violet-400'
+            )}
+          >
+            {isSelected && (
+              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+        )}
+        
         {/* 展开/折叠按钮 */}
-        {hasChildren && (
+        {hasChildren && !batchSelectMode && (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="flex-shrink-0 w-4 h-4 flex items-center justify-center hover:bg-slate-200 rounded"
@@ -154,7 +190,7 @@ function SubMenuItem({
             />
           </button>
         )}
-        {!hasChildren && <div className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />}
+        {!hasChildren && !batchSelectMode && <div className="w-1.5 h-1.5 rounded-full bg-slate-300 flex-shrink-0" />}
 
         <button
           onClick={() => onItemClick(item.id)}
@@ -167,7 +203,7 @@ function SubMenuItem({
         </button>
 
         {/* 删除按钮 */}
-        {showActions && onDelete && (
+        {!batchSelectMode && showActions && onDelete && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -182,7 +218,7 @@ function SubMenuItem({
       </div>
 
       {/* 递归渲染子项 */}
-      {hasChildren && isExpanded && (
+      {hasChildren && isExpanded && !batchSelectMode && (
         <div className="mt-0.5">
           {item.children!.map(child => (
             <SubMenuItem
@@ -192,6 +228,10 @@ function SubMenuItem({
               onItemClick={onItemClick}
               onDelete={onDelete}
               level={level + 1}
+              batchSelectMode={batchSelectMode}
+              selectedIds={selectedIds}
+              onToggleSelect={onToggleSelect}
+              selectable={selectable}
             />
           ))}
         </div>
@@ -258,6 +298,113 @@ export default function Sidebar({
   const [resetTargetMode, setResetTargetMode] = React.useState<'contains' | 'exact' | 'startsWith' | 'endsWith' | 'regex' | 'fuzzy'>('contains');
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isUpdating, setIsUpdating] = React.useState(false);
+  const [isBatchDeleteDialogOpen, setIsBatchDeleteDialogOpen] = React.useState(false);
+  
+  // 批量选择状态
+  const [batchSelectMode, setBatchSelectMode] = React.useState(false);
+  const [selectedAlbumIds, setSelectedAlbumIds] = React.useState<Set<string>>(new Set());
+  const [isBatchDeleting, setIsBatchDeleting] = React.useState(false);
+  
+  // 切换批量选择模式
+  const toggleBatchSelectMode = () => {
+    if (batchSelectMode) {
+      // 退出批量选择模式时清空选择
+      setSelectedAlbumIds(new Set());
+    }
+    setBatchSelectMode(!batchSelectMode);
+  };
+  
+  // 切换相册选中状态
+  const toggleAlbumSelection = (albumId: string) => {
+    setSelectedAlbumIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(albumId)) {
+        newSet.delete(albumId);
+      } else {
+        newSet.add(albumId);
+      }
+      return newSet;
+    });
+  };
+  
+  // 全选/取消全选
+  const toggleSelectAll = () => {
+    if (selectedAlbumIds.size === getAllSelectableAlbumIds().length) {
+      setSelectedAlbumIds(new Set());
+    } else {
+      setSelectedAlbumIds(new Set(getAllSelectableAlbumIds()));
+    }
+  };
+  
+  // 获取所有可选中的相册ID（排除系统相册）
+  const getAllSelectableAlbumIds = (): string[] => {
+    const ids: string[] = [];
+    const collectIds = (items: AlbumInfo[]) => {
+      for (const item of items) {
+        if (!item.isSystem) {
+          ids.push(item.id);
+        }
+        if (item.children) {
+          collectIds(item.children);
+        }
+      }
+    };
+    collectIds(albums);
+    return ids;
+  };
+  
+  // 批量删除相册
+  const handleBatchDelete = async () => {
+    if (selectedAlbumIds.size === 0) {
+      toast.error('请先选择要删除的相册');
+      return;
+    }
+    
+    setIsBatchDeleting(true);
+    try {
+      const response = await fetch('/api/albums/batch-delete', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ids: Array.from(selectedAlbumIds),
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        const successCount = result.data?.successCount || 0;
+        const failCount = result.data?.failCount || 0;
+        
+        toast.success(`成功删除 ${successCount} 个相册`);
+        if (failCount > 0) {
+          const failedItems = result.data?.failedItems || [];
+          const reasons = failedItems.slice(0, 3).map((item: any) => `${item.name || item.id}: ${item.reason}`).join('；');
+          toast.error(`有 ${failCount} 个相册删除失败：${reasons}${failCount > 3 ? '...' : ''}`);
+        }
+        
+        // 清空选择并退出批量模式
+        setSelectedAlbumIds(new Set());
+        setBatchSelectMode(false);
+        setIsBatchDeleteDialogOpen(false);
+        
+        // 刷新相册列表
+        if (onAlbumCreated) {
+          onAlbumCreated();
+        }
+      } else {
+        toast.error(result.message || '批量删除失败');
+      }
+    } catch (error) {
+      console.error('批量删除失败:', error);
+      toast.error('批量删除失败，请重试');
+    } finally {
+      setIsBatchDeleting(false);
+    }
+  };
 
   const toggleExpand = (itemId: string) => {
     setExpandedItems((prev) =>
@@ -678,7 +825,30 @@ export default function Sidebar({
                       )}
                     </button>
                     {!collapsed && item.showAddButton && (
-                      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* 批量选择按钮 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleBatchSelectMode();
+                          }}
+                          className={cn(
+                            'p-1 rounded-lg transition-colors flex-shrink-0',
+                            batchSelectMode
+                              ? 'bg-violet-100 text-violet-600 hover:bg-violet-200'
+                              : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'
+                          )}
+                          aria-label="批量选择"
+                          title="批量选择"
+                        >
+                          {batchSelectMode ? (
+                            <Checkbox className="w-3.5 h-3.5" />
+                          ) : (
+                            <Square className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        {/* 新建按钮 */}
+                        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                         <DialogTrigger asChild>
                           <button
                             onClick={(e) => {
@@ -688,7 +858,7 @@ export default function Sidebar({
                                 onCreateSmartAlbum();
                               }
                             }}
-                            className="p-1 hover:bg-violet-100 rounded-lg transition-colors text-violet-600 hover:text-violet-700 flex-shrink-0"
+                            className="p-1 hover:bg-violet-100 rounded-lg transition-colors text-violet-600 hover:text-violet-700"
                             aria-label={item.id === 'smart-albums' ? '新建智能相册' : '新建分类'}
                           >
                             <Plus className="w-3.5 h-3.5" />
@@ -912,9 +1082,13 @@ export default function Sidebar({
                         key={child.id}
                         item={child}
                         activeItem={activeItem}
-                        onItemClick={onItemClick}
+                        onItemClick={batchSelectMode ? () => toggleAlbumSelection(child.id) : onItemClick}
                         onDelete={openDeleteDialog}
                         level={1}
+                        batchSelectMode={batchSelectMode}
+                        selectedIds={selectedAlbumIds}
+                        onToggleSelect={toggleAlbumSelection}
+                        selectable={!child.isSystem}
                       />
                     ))}
                   </div>
@@ -924,6 +1098,44 @@ export default function Sidebar({
           })}
         </div>
       </div>
+
+      {/* 批量删除工具栏 */}
+      {batchSelectMode && (
+        <div className="border-t border-violet-200 bg-gradient-to-r from-violet-50 to-purple-50 py-3 px-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-violet-700 font-medium">
+              已选择 {selectedAlbumIds.size} 个相册
+            </span>
+            <button
+              onClick={toggleSelectAll}
+              className="text-xs text-violet-600 hover:text-violet-700 underline"
+            >
+              {selectedAlbumIds.size === getAllSelectableAlbumIds().length ? '取消全选' : '全选'}
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBatchSelectMode(false)}
+              className="flex-1 px-3 py-1.5 text-sm text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            >
+              取消
+            </button>
+            <button
+              onClick={() => setIsBatchDeleteDialogOpen(true)}
+              disabled={selectedAlbumIds.size === 0}
+              className={cn(
+                'flex-1 px-3 py-1.5 text-sm rounded-lg transition-colors flex items-center justify-center gap-1.5',
+                selectedAlbumIds.size > 0
+                  ? 'bg-red-500 text-white hover:bg-red-600'
+                  : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              )}
+            >
+              <Trash className="w-4 h-4" />
+              批量删除
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 底部菜单区域 */}
       <div className="border-t border-slate-200/60 py-4 px-3 space-y-1">
@@ -1015,6 +1227,38 @@ export default function Sidebar({
               disabled={isDeleting || (albumToDelete !== null && albumToDelete.count > 0)}
             >
               {isDeleting ? '删除中...' : '删除'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 批量删除相册确认对话框 */}
+      <Dialog open={isBatchDeleteDialogOpen} onOpenChange={setIsBatchDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>批量删除相册</DialogTitle>
+            <DialogDescription>
+              确定要删除选中的 {selectedAlbumIds.size} 个相册吗？
+              <span className="block mt-2 text-slate-500">
+                此操作不可恢复。有子相册或包含图片的相册无法删除。
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsBatchDeleteDialogOpen(false);
+              }}
+            >
+              取消
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleBatchDelete}
+              disabled={isBatchDeleting}
+            >
+              {isBatchDeleting ? '删除中...' : `删除 ${selectedAlbumIds.size} 个相册`}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -373,7 +373,20 @@ export default function Sidebar({
         }),
       });
       
-      const result = await response.json();
+      const text = await response.text();
+      
+      if (!text) {
+        toast.error('服务器返回空响应，请检查后端服务是否运行');
+        return;
+      }
+      
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (e) {
+        toast.error(`响应解析失败: ${text.substring(0, 100)}`);
+        return;
+      }
       
       if (result.success) {
         const successCount = result.data?.successCount || 0;

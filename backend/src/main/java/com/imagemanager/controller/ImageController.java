@@ -7,6 +7,7 @@ import com.imagemanager.service.ImageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +61,52 @@ public class ImageController {
         // 记录浏览次数
         imageService.recordView(id);
         return ApiResponse.success(image);
+    }
+
+    /**
+     * 下载图片文件
+     */
+    @GetMapping("/{id}/file")
+    @Operation(summary = "下载图片文件", description = "根据图片ID下载图片文件")
+    public void downloadImageFile(
+            @Parameter(description = "图片ID") @PathVariable String id,
+            HttpServletResponse response) {
+        Image image = imageService.getImageById(id);
+        if (image == null || image.getFilePath() == null) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        
+        try {
+            String filePath = image.getFilePath();
+            java.io.File file = new java.io.File(filePath);
+            
+            if (!file.exists()) {
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                return;
+            }
+            
+            String contentType = image.getContentType();
+            if (contentType == null || contentType.isEmpty()) {
+                contentType = "image/" + (image.getFileType() != null ? image.getFileType() : "png");
+            }
+            
+            response.setContentType(contentType);
+            response.setContentLengthLong(file.length());
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + image.getTitle() + "\"");
+            
+            try (java.io.InputStream is = new java.io.FileInputStream(file);
+                 java.io.OutputStream os = response.getOutputStream()) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                while ((bytesRead = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, bytesRead);
+                }
+            }
+        } catch (Exception e) {
+            log.error("下载图片文件失败: {}", e.getMessage(), e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
     }
     
     /**

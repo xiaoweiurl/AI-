@@ -478,8 +478,6 @@ public class ImageController {
             String userId = getCurrentUserId(httpRequest);
             System.out.println("用户ID: " + userId);
             System.out.println("图片数量: " + request.getImages().size());
-
-            request.setUserId(userId);
             
             System.out.println("开始创建任务...");
             String taskId = batchDownloadTaskService.createTask(userId, "批量下载", request.getImages().size());

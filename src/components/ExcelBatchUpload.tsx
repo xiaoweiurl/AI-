@@ -369,7 +369,10 @@ export default function ExcelBatchUpload({
 
   // 轮询任务进度的函数
   const pollTaskProgress = async (taskId: string) => {
+    console.log('[ExcelUpload] 开始轮询任务进度, taskId:', taskId);
+    
     const poll = async () => {
+      console.log('[ExcelUpload] 轮询任务进度...');
       try {
         const response = await fetch(`/api/batch-download/tasks/${taskId}`, {
           credentials: 'include',

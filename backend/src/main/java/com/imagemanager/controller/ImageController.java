@@ -77,13 +77,13 @@ public class ImageController {
             @Parameter(description = "图片ID") @PathVariable String id,
             HttpServletResponse response) {
         Image image = imageService.getImageById(id);
-        if (image == null || image.getFilePath() == null) {
+        if (image == null || image.getFileKey() == null) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return;
         }
         
         try {
-            String filePath = image.getFilePath();
+            String filePath = image.getFileKey();
             java.io.File file = new java.io.File(filePath);
             
             if (!file.exists()) {

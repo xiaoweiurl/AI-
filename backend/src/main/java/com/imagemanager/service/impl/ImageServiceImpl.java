@@ -1332,14 +1332,30 @@ public class ImageServiceImpl implements ImageService {
             // 合并所有需要下载的URL（主图 + 详情图），并去重
             List<String> allUrls = new ArrayList<>();
             Set<String> urlSet = new java.util.LinkedHashSet<>(); // 使用 LinkedHashSet 保持顺序并去重
+            
+            // 辅助方法：规范化URL，添加协议头
+            java.util.function.Function<String, String> normalizeUrl = url -> {
+                String normalized = url.trim();
+                // 如果URL以 // 开头，添加 https:
+                if (normalized.startsWith("//")) {
+                    normalized = "https:" + normalized;
+                }
+                // 如果是京东的 .avif 格式，尝试获取更高质量的版本
+                // 京东的 .avif 图片可以用 .jpg 替代，质量更好
+                if (normalized.contains(".avif")) {
+                    normalized = normalized.replace(".avif", ".jpg");
+                }
+                return normalized;
+            };
+            
             if (item.getMainImageUrl() != null && !item.getMainImageUrl().isEmpty() && !item.getMainImageUrl().trim().isEmpty()) {
-                urlSet.add(item.getMainImageUrl().trim());
+                urlSet.add(normalizeUrl.apply(item.getMainImageUrl()));
             }
             if (item.getDetailImageUrls() != null && !item.getDetailImageUrls().isEmpty()) {
                 // 过滤空URL和无效URL
                 item.getDetailImageUrls().stream()
                     .filter(url -> url != null && !url.isEmpty() && !url.trim().isEmpty())
-                    .map(String::trim)
+                    .map(normalizeUrl)
                     .forEach(urlSet::add);
             }
             allUrls.addAll(urlSet);

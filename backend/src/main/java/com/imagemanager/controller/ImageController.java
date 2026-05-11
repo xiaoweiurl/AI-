@@ -3,6 +3,8 @@ package com.imagemanager.controller;
 import com.imagemanager.dto.*;
 import com.imagemanager.entity.Image;
 import com.imagemanager.repository.ImageRepository;
+import com.imagemanager.entity.BatchDownloadTask;
+import com.imagemanager.service.BatchDownloadTaskService;
 import com.imagemanager.service.ImageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,6 +40,9 @@ public class ImageController {
     
     @Autowired
     private ImageRepository imageRepository;
+    
+    @Autowired
+    private BatchDownloadTaskService batchDownloadTaskService;
     
     /**
      * 查询图片列表
@@ -461,6 +466,97 @@ public class ImageController {
     }
     
     /**
+     * 异步批量下载网络图片 - 提交任务
+     */
+    @PostMapping("/batch-download/tasks")
+    @Operation(summary = "异步批量下载任务", description = "提交异步批量下载任务，立即返回任务ID")
+    public ApiResponse<BatchDownloadTask> submitAsyncBatchDownloadTask(
+            @Valid @RequestBody BatchDownloadRequest request,
+            HttpServletRequest httpRequest) {
+        System.out.println("\n========== 异步批量下载任务开始 ==========");
+        String sessionId = httpRequest.getHeader("X-Session-Id");
+        System.out.println("X-Session-Id: " + sessionId);
+        
+        try {
+            String userId = getCurrentUserId(httpRequest);
+            System.out.println("用户ID: " + userId);
+            System.out.println("图片数量: " + request.getImages().size());
+
+            request.setUserId(userId);
+            
+            System.out.println("开始创建任务...");
+            BatchDownloadTask task = new BatchDownloadTask();
+            task.setUserId(userId);
+            task.setStatus("running");
+            task.setTotalCount(request.getImages().size());
+            task.setProcessedCount(0);
+            task.setSuccessCount(0);
+            task.setFailedCount(0);
+            task.setCreatedAt(LocalDateTime.now());
+            task.setUpdatedAt(LocalDateTime.now());
+            
+            BatchDownloadTask savedTask = batchDownloadTaskService.createTask(task);
+            System.out.println("任务ID: " + savedTask.getId());
+            System.out.println("任务创建成功！");
+            
+            // 异步执行
+            final String taskId = savedTask.getId();
+            final BatchDownloadRequest finalRequest = request;
+            
+            System.out.println("启动异步线程...");
+            CompletableFuture.runAsync(() -> {
+                try {
+                    System.out.println("[Task " + taskId + "] 开始异步执行...");
+                    List<BatchDownloadResponse> results = imageService.batchDownloadImages(finalRequest);
+                    batchDownloadTaskService.updateTaskCompleted(taskId, results);
+                    System.out.println("[Task " + taskId + "] 异步执行完成！");
+                } catch (Exception e) {
+                    System.out.println("!!! [Task " + taskId + "] 异步执行失败: " + e.getMessage());
+                    e.printStackTrace();
+                    batchDownloadTaskService.updateTaskFailed(taskId, e.getMessage());
+                }
+            });
+            
+            System.out.println("立即返回任务ID: " + savedTask.getId());
+            System.out.println("========== 异步批量下载任务结束 ==========\n");
+            return ApiResponse.success(savedTask);
+        } catch (Exception e) {
+            System.out.println("!!! 异步批量下载任务失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResponse.error("系统异常，请稍后重试: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 异步批量下载任务 - 查询进度
+     */
+    @GetMapping("/batch-download/tasks/{taskId}")
+    @Operation(summary = "异步批量下载任务进度", description = "查询异步批量下载任务的进度")
+    public ApiResponse<BatchDownloadTask> getAsyncBatchDownloadTask(
+            @Parameter(description = "任务ID") @PathVariable String taskId) {
+        System.out.println("\n========== 查询异步任务进度 ==========");
+        System.out.println("任务ID: " + taskId);
+        
+        try {
+            Optional<BatchDownloadTask> taskOpt = batchDownloadTaskService.getTask(taskId);
+            if (taskOpt.isPresent()) {
+                BatchDownloadTask task = taskOpt.get();
+                System.out.println("任务状态: " + task.getStatus());
+                System.out.println("进度: " + task.getProcessedCount() + "/" + task.getTotalCount());
+                System.out.println("========== 查询完成 ==========\n");
+                return ApiResponse.success(task);
+            } else {
+                System.out.println("!!! 任务不存在: " + taskId);
+                return ApiResponse.error("任务不存在");
+            }
+        } catch (Exception e) {
+            System.out.println("!!! 查询任务失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResponse.error("查询任务失败");
+        }
+    }
+    
+    /**
      * 批量导出相册图片
      * 按相册分组，每个相册一个文件夹，文件夹内按商品ID再分小文件夹
      * 主图命名 main.{ext}，详情图命名 detail_1.{ext}、detail_2.{ext} 等
@@ -487,6 +583,18 @@ public class ImageController {
             log.error("导出失败", e);
             return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+    
+    /**
+     * 从请求中获取当前用户ID
+     */
+    private String getCurrentUserId(HttpServletRequest request) {
+        // 从session获取用户
+        Object sessionUser = request.getSession().getAttribute("user");
+        if (sessionUser instanceof com.imagemanager.entity.User) {
+            return ((com.imagemanager.entity.User) sessionUser).getId();
+        }
+        throw new RuntimeException("未登录或用户未授权");
     }
     
     /**

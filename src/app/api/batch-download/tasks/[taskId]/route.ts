@@ -15,10 +15,9 @@ export async function GET(
 
     const response = await backendFetch(`/batch-download/tasks/${taskId}`, {
       method: 'GET',
-      headers: {
-        ...(sessionId && { 'X-Session-Id': sessionId }),
+      requestHeaders: {
+        'x-session-id': sessionId ?? null,
       },
-      credentials: 'include',
     });
 
     return NextResponse.json(await response.json());

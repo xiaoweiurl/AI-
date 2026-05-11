@@ -7,17 +7,17 @@ import { backendFetch } from '@/lib/backend-proxy';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    
+    // 从请求中获取 sessionId，传递给 backendFetch
     const sessionId = request.headers.get('x-session-id') || 
                       request.cookies.get('session_id')?.value;
 
     const response = await backendFetch('/batch-download/tasks', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(sessionId && { 'X-Session-Id': sessionId }),
+      body: body,
+      requestHeaders: {
+        'x-session-id': sessionId ?? null,
       },
-      body: JSON.stringify(body),
-      credentials: 'include',
     });
 
     return NextResponse.json(await response.json());

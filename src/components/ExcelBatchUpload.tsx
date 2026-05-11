@@ -32,7 +32,8 @@ interface ExcelRow {
   productName: string;
   mainImageUrl: string; // 商品详情（主图）
   detailImageUrls: string[]; // 图片地址（详情图，可能多张）
-  category?: string;
+  category?: string; // 第三层分类（功能内衣）
+  subCategory?: string; // 第二层分类（男士专区）
   description?: string;
   status: 'pending' | 'downloading' | 'success' | 'error' | 'skipped';
   error?: string;

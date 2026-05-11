@@ -96,8 +96,14 @@ app:
 # 日志配置
 logging:
   level:
-    com.imagemanager: DEBUG
-    org.springframework.web: INFO
-    org.hibernate.SQL: DEBUG
+    # 只显示异步任务相关的日志
+    com.imagemanager: INFO
+    com.imagemanager.controller.AsyncBatchDownloadController: DEBUG
+    com.imagemanager.service.BatchDownloadTaskService: DEBUG
+    # 关闭其他库的日志
+    org.springframework.web: WARN
+    org.hibernate.SQL: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+    org.springframework.jdbc.core: WARN
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{HH:mm:ss} [%thread] %msg%n"

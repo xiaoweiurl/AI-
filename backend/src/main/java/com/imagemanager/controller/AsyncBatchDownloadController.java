@@ -23,7 +23,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Slf4j
 @RestController
-@RequestMapping("/api/images")
+@RequestMapping("/api/batch-download")
 @Tag(name = "异步批量下载", description = "异步批量下载图片相关接口")
 public class AsyncBatchDownloadController {
 

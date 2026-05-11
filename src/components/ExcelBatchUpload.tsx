@@ -43,6 +43,7 @@ interface UploadedImage {
   mainImageUrl: string; // 主图
   detailImageUrls: string[]; // 详情图列表（至少为空数组）
   category?: string;
+  subCategory?: string;
   description?: string;
 }
 
@@ -283,6 +284,7 @@ export default function ExcelBatchUpload({
             mainImageUrl: mainImageUrl ? mainImageUrl.trim() : '',
             detailImageUrls: detailImageUrls,
             category: category && category.trim() ? category.trim() : undefined,
+            subCategory: subCategory && subCategory.trim() ? subCategory.trim() : undefined,
             description: description && description.trim() ? description.trim() : undefined,
             status: 'pending' as const,
           });
@@ -369,6 +371,7 @@ export default function ExcelBatchUpload({
           mainImageUrl: row.mainImageUrl ? row.mainImageUrl.trim() : '',
           detailImageUrls: validDetailUrls,
           category: row.category && row.category.trim() ? row.category.trim() : undefined,
+          subCategory: row.subCategory && row.subCategory.trim() ? row.subCategory.trim() : undefined,
           description: row.description && row.description.trim() ? row.description.trim() : undefined,
         } as UploadedImage | null;
       })

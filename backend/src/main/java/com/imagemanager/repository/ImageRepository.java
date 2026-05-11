@@ -299,6 +299,11 @@ public interface ImageRepository extends JpaRepository<Image, String> {
     boolean existsByOriginalUrlAndDeletedFalse(String originalUrl);
 
     boolean existsByUrlAndDeletedFalse(String url);
+
+    /**
+     * 按原始URL和文件名检查图片是否已存在（双重校验）
+     */
+    boolean existsByOriginalUrlAndTitleAndDeletedFalse(String originalUrl, String title);
     
     // ==================== 高级搜索查询方法 ====================
     

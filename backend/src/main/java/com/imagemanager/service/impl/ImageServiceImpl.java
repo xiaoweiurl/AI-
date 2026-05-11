@@ -1218,47 +1218,58 @@ public class ImageServiceImpl implements ImageService {
                 // 使用新的方法：支持三级相册层级
                 // 分类格式: 羽绒服_女士专区_
                 // 第一层: 文件名 (X-BIONIC)
-                // 第二层: subCategory (女士专区)
+                // 第二层: subCategory (女士专区) 或 category（只有单层时）
                 // 第三层: category (羽绒服)
                 try {
                     String subCategory = item.getSubCategory();
+                    String secondLevelName = null; // 第二层级名称
+                    String thirdLevelName = null;  // 第三层级名称
                     Album targetAlbum = null;
-                    
-                    if (subCategory != null && !subCategory.isEmpty()) {
-                        // 有第二层分类
-                        if (category != null && !category.isEmpty()) {
-                            // 三级层级：X-BIONIC -> subCategory -> category
-                            // 先创建/获取第二层相册 (在 X-BIONIC 下)
-                            Album subCategoryAlbum = albumService.getOrCreateAlbumByParentAndName(
+
+                    // 统一处理分类层级逻辑
+                    if (category != null && !category.isEmpty()) {
+                        // 有第三层分类
+                        if (subCategory != null && !subCategory.isEmpty()) {
+                            // 三级分类：X-BIONIC -> subCategory -> category
+                            secondLevelName = subCategory;
+                            thirdLevelName = category;
+                        } else {
+                            // 只有一层分类：X-BIONIC -> category（把category作为第二层）
+                            secondLevelName = category;
+                            thirdLevelName = null;
+                        }
+                    } else if (subCategory != null && !subCategory.isEmpty()) {
+                        // 只有subCategory没有category：X-BIONIC -> subCategory
+                        secondLevelName = subCategory;
+                        thirdLevelName = null;
+                    }
+
+                    // 根据层级名称创建相册
+                    if (secondLevelName != null && !secondLevelName.isEmpty()) {
+                        if (thirdLevelName != null && !thirdLevelName.isEmpty()) {
+                            // 三级层级：X-BIONIC -> secondLevelName -> thirdLevelName
+                            Album secondLevelAlbum = albumService.getOrCreateAlbumByParentAndName(
                                     cleanParentName != null ? cleanParentName : "",
-                                    subCategory,
+                                    secondLevelName,
                                     "user-1"
                             );
-                            // 再创建/获取第三层相册 (在 subCategory 下)，使用父相册ID避免名称歧义
+                            // 使用父相册ID避免名称歧义
                             targetAlbum = albumService.getOrCreateAlbumByParentIdAndName(
-                                    subCategoryAlbum.getId(),
-                                    category,
+                                    secondLevelAlbum.getId(),
+                                    thirdLevelName,
                                     "user-1"
                             );
                             log.info("Excel导入 - 三级相册: 第一层={}, 第二层={}, 第三层={}",
-                                    cleanParentName, subCategory, category);
+                                    cleanParentName, secondLevelName, thirdLevelName);
                         } else {
-                            // 两级层级：X-BIONIC -> subCategory（只有一层子分类）
+                            // 两级层级：X-BIONIC -> secondLevelName（只有一层子分类）
                             targetAlbum = albumService.getOrCreateAlbumByParentAndName(
                                     cleanParentName != null ? cleanParentName : "",
-                                    subCategory,
+                                    secondLevelName,
                                     "user-1"
                             );
-                            log.info("Excel导入 - 两级相册: 第一层={}, 第二层={}", cleanParentName, subCategory);
+                            log.info("Excel导入 - 两级相册: 第一层={}, 第二层={}", cleanParentName, secondLevelName);
                         }
-                    } else if (category != null && !category.isEmpty()) {
-                        // 两级层级：父相册 -> 子相册
-                        targetAlbum = albumService.getOrCreateAlbumByParentAndName(
-                                cleanParentName != null ? cleanParentName : "", 
-                                category, 
-                                "user-1"
-                        );
-                        log.info("Excel导入 - 两级相册: 第一层={}, 第二层={}", cleanParentName, category);
                     }
                     
                     if (targetAlbum != null) {

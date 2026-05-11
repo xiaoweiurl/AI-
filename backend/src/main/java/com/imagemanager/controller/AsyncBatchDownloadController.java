@@ -36,7 +36,7 @@ public class AsyncBatchDownloadController {
     /**
      * 提交异步批量下载任务
      */
-    @PostMapping("/batch-download-async")
+    @PostMapping("/tasks")
     @Operation(summary = "提交异步批量下载任务", description = "提交任务后立即返回任务ID，后台异步处理")
     public ApiResponse<Map<String, Object>> submitBatchDownloadTask(
             @RequestBody BatchDownloadRequest request) {
@@ -99,7 +99,7 @@ public class AsyncBatchDownloadController {
     /**
      * 获取任务进度
      */
-    @GetMapping("/batch-download-progress/{taskId}")
+    @GetMapping("/tasks/{taskId}")
     @Operation(summary = "获取任务进度", description = "轮询获取批量下载任务进度")
     public ApiResponse<Map<String, Object>> getTaskProgress(@PathVariable String taskId) {
         try {

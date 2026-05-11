@@ -17,6 +17,9 @@ export async function POST(request: NextRequest) {
       'x-session-id': request.headers.get('x-session-id') || '',
     });
     
+    console.log('[batch-download/tasks] SessionId from request:', sessionId ? sessionId.substring(0, 8) + '...' : 'null');
+    console.log('[batch-download/tasks] Cookie:', request.headers.get('cookie')?.substring(0, 50));
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };

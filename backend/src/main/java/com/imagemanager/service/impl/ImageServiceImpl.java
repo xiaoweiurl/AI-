@@ -1393,7 +1393,7 @@ public class ImageServiceImpl implements ImageService {
                         }
                     }
                     // 如果无法提取文件名，回退到只检查URL
-                    if (!isDuplicate && urlFileName == null) {
+                    if (!isDuplicate && (urlFileName == null || urlFileName.isEmpty())) {
                         isDuplicate = imageRepository.existsByOriginalUrlAndDeletedFalse(imageUrl);
                         if (isDuplicate) {
                             log.info("图片URL已存在于数据库，跳过: {}", imageUrl);

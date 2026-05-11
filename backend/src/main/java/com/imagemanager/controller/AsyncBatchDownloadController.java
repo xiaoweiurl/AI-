@@ -65,24 +65,38 @@ public class AsyncBatchDownloadController {
             HttpServletRequest httpRequest,
             @RequestBody BatchDownloadRequest request) {
         try {
+            // 调试：打印请求头
+            log.info("=== 异步批量下载任务调试开始 ===");
+            log.info("X-Session-Id header: {}", httpRequest.getHeader("X-Session-Id"));
+            log.info("Content-Type: {}", httpRequest.getContentType());
+            
             String userId = getCurrentUserId(httpRequest);
-            log.info("提交异步批量下载任务，用户ID：{}，图片数量：{}", userId, request.getImages() != null ? request.getImages().size() : 0);
-
+            log.info("获取到的用户ID: {}", userId);
+            log.info("请求图片数量: {}", request.getImages() != null ? request.getImages().size() : 0);
+            
+            if (request.getImages() != null && !request.getImages().isEmpty()) {
+                log.info("第一张图片: {}", request.getImages().get(0));
+            }
+            log.info("=== 异步批量下载任务调试结束 ===");
+            
             // 创建任务
             String taskId = taskService.createTask(
                     userId,
                     request.getParentAlbumName(),
                     request.getImages() != null ? request.getImages().size() : 0
             );
+            log.info("任务创建成功，taskId: {}", taskId);
 
             // 异步处理
             final String finalUserId = userId;
             CompletableFuture.runAsync(() -> {
                 try {
+                    log.info("异步线程开始执行，taskId: {}", taskId);
                     taskService.updateTaskProcessing(taskId);
 
                     // 调用原有的批量下载逻辑
                     List<BatchDownloadResponse> results = imageService.batchDownloadImagesSync(request);
+                    log.info("批量下载完成，返回结果数量: {}", results.size());
 
                     // 统计结果
                     int successCount = 0, failCount = 0, skipCount = 0;
@@ -103,7 +117,8 @@ public class AsyncBatchDownloadController {
                     log.info("异步任务完成：taskId={}, success={}, fail={}, skip={}", taskId, successCount, failCount, skipCount);
 
                 } catch (Exception e) {
-                    log.error("异步任务失败：taskId={}", taskId, e);
+                    log.error("异步任务执行出错：taskId={}, 错误: {}", taskId, e.getMessage(), e);
+                    e.printStackTrace();
                     taskService.updateTaskFailed(taskId, e.getMessage());
                 }
             });
@@ -117,7 +132,8 @@ public class AsyncBatchDownloadController {
             return ApiResponse.success(result);
 
         } catch (Exception e) {
-            log.error("提交异步任务失败", e);
+            log.error("提交异步任务失败，错误: {}", e.getMessage(), e);
+            e.printStackTrace();
             return ApiResponse.error("提交任务失败：" + e.getMessage());
         }
     }

@@ -1222,7 +1222,7 @@ public class ImageServiceImpl implements ImageService {
                 // 第三层: category (羽绒服)
                 try {
                     String subCategory = item.getSubCategory();
-                    Album targetAlbum;
+                    Album targetAlbum = null;
                     
                     if (subCategory != null && !subCategory.isEmpty()) {
                         // 有第二层分类

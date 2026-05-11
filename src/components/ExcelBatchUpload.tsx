@@ -374,7 +374,7 @@ export default function ExcelBatchUpload({
     const poll = async () => {
       console.log('[ExcelUpload] 轮询任务进度...');
       try {
-        const response = await fetch(`/api/batch-download/tasks/${taskId}`, {
+        const response = await fetch(`/api/images/batch-download-async?taskId=${taskId}`, {
           credentials: 'include',
         });
 

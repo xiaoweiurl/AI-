@@ -91,3 +91,60 @@ export async function POST(request: NextRequest) {
     }, { status: 500 });
   }
 }
+
+/**
+ * @swagger
+ * /api/images/batch-download-async:
+ *   get:
+ *     summary: 查询异步批量下载任务进度
+ *     description: 根据任务ID查询异步批量下载任务的进度
+ *     tags: [图片管理]
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: taskId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 任务ID
+ *     responses:
+ *       200:
+ *         description: 查询成功
+ *       500:
+ *         description: 系统异常
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const taskId = searchParams.get('taskId');
+    const cookieHeader = request.headers.get('cookie') || '';
+
+    if (!taskId) {
+      return NextResponse.json({
+        success: false,
+        message: '任务ID不能为空',
+      }, { status: 400 });
+    }
+
+    console.log('[API] 查询任务进度, taskId:', taskId);
+
+    const response = await backendFetch(`/images/batch-download/tasks/${taskId}`, {
+      method: 'GET',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
+
+    const data = await response.json();
+    console.log('[API] 查询任务进度响应:', data);
+
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('[API] 查询任务进度失败:', error);
+    return NextResponse.json({
+      success: false,
+      message: '系统异常，请稍后重试',
+    }, { status: 500 });
+  }
+}

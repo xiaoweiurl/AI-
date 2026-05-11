@@ -577,10 +577,60 @@ export default function ExcelBatchUpload({
     }
 
     try {
-      console.log('[ExcelUpload] 提交异步批量下载任务，数量:', imagesToDownload.length);
+      console.log('[ExcelUpload] 提交批量下载任务，数量:', imagesToDownload.length);
 
-      // 调用后端API提交异步任务
-      const response = await fetch('/api/batch-download/tasks', {
+      // 首先尝试异步接口
+      let successCount = 0;
+      let failCountLocal = 0;
+      let skippedCount = 0;
+
+      try {
+        // 调用后端API提交异步任务
+        const response = await fetch('/api/batch-download/tasks', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            images: imagesToDownload,
+            parentAlbumName: excelFileNameRef.current,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('[ExcelUpload] 异步任务创建响应:', result);
+
+          if (result.success && result.data && result.data.taskId) {
+            const taskId = result.data.taskId;
+
+            // 初始化任务状态
+            setTaskProgress({
+              [taskId]: {
+                progress: 0,
+                total: imagesToDownload.length,
+                success: 0,
+                failed: 0,
+                skipped: 0,
+                status: 'processing',
+              }
+            });
+
+            // 开始轮询任务进度
+            const intervalId = await pollTaskProgress(taskId);
+            setTaskIntervalId?.(intervalId);
+            return; // 异步任务成功启动，后续由轮询处理
+          }
+        }
+        // 如果响应不成功，继续使用同步接口 fallback
+        console.log('[ExcelUpload] 异步接口不可用，使用同步接口 fallback');
+      } catch (asyncError) {
+        console.log('[ExcelUpload] 异步接口调用失败，使用同步接口 fallback:', asyncError);
+      }
+
+      // Fallback: 使用同步接口
+      const syncResponse = await fetch('/api/images/batch-download', {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -592,43 +642,39 @@ export default function ExcelBatchUpload({
         }),
       });
 
-      if (!response.ok) {
-        throw new Error(`请求失败: ${response.status} ${response.statusText}`);
+      if (!syncResponse.ok) {
+        throw new Error(`请求失败: ${syncResponse.status} ${syncResponse.statusText}`);
       }
 
-      const result = await response.json();
+      const syncResult = await syncResponse.json();
+      console.log('[ExcelUpload] 同步批量下载响应:', syncResult);
 
-      console.log('[ExcelUpload] 异步任务创建响应:', result);
-
-      if (result.success && result.data && result.data.taskId) {
-        const taskId = result.data.taskId;
-
-        // 初始化任务状态
-        setTaskProgress({
-          [taskId]: {
-            progress: 0,
-            total: imagesToDownload.length,
-            success: 0,
-            failed: 0,
-            skipped: 0,
-            status: 'processing',
-          }
-        });
-
-        // 开始轮询任务进度
-        const intervalId = await pollTaskProgress(taskId);
-
-        // 保存 intervalId 用于清理（需要在外层组件处理）
-        setTaskIntervalId?.(intervalId);
+      // 处理同步响应结果 - 假设所有待处理的行都成功
+      if (syncResult.success) {
+        setExcelData(prev =>
+          prev.map(row => {
+            if (row.status !== 'pending') return row;
+            return { ...row, status: 'success' as const };
+          })
+        );
       } else {
-        throw new Error(result.error || '创建异步任务失败');
+        setExcelData(prev =>
+          prev.map(row => {
+            if (row.status !== 'pending') return row;
+            return { ...row, status: 'error' as const, error: syncResult.message || '下载失败' };
+          })
+        );
       }
     } catch (error) {
       console.error('[ExcelUpload] 批量下载失败:', error);
       let errorMessage = '网络错误';
 
       if (error instanceof Error) {
-        errorMessage = error.message;
+        if (error.name === 'AbortError') {
+          errorMessage = '下载超时（图片数量过多，请分批导入）';
+        } else {
+          errorMessage = error.message;
+        }
       }
 
       setExcelData(prev =>
@@ -639,6 +685,7 @@ export default function ExcelBatchUpload({
         }))
       );
       failCount = pendingRows.length;
+    } finally {
       setIsProcessing(false);
     }
   };

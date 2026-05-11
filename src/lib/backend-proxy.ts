@@ -75,6 +75,7 @@ interface BackendRequestOptions {
   body?: unknown;
   headers?: Record<string, string>;
   timeout?: number;
+  credentials?: RequestCredentials;
   /**
    * 请求头对象（用于服务端 API route 从请求中获取 sessionId）
    */

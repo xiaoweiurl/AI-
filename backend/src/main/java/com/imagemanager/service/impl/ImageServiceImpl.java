@@ -1368,12 +1368,12 @@ public class ImageServiceImpl implements ImageService {
                 
                 boolean isMainImage = (i == 0); // 第一张是主图
                 
-                // 从URL提取文件名
-                String fileName = null;
+                // 从URL提取文件名（用于检查重复）
+                String urlFileName = null;
                 try {
                     String path = new java.net.URL(imageUrl).getPath();
                     if (path != null && path.contains("/")) {
-                        fileName = path.substring(path.lastIndexOf("/") + 1);
+                        urlFileName = path.substring(path.lastIndexOf("/") + 1);
                     }
                 } catch (Exception e) {
                     log.warn("无法从URL提取文件名: {}", imageUrl);
@@ -1383,17 +1383,17 @@ public class ImageServiceImpl implements ImageService {
                     // 检查图片URL和文件名是否已存在，避免重复下载
                     // 只有当 originalUrl 和 文件名 都相同时才认为是重复图片
                     boolean isDuplicate = false;
-                    if (fileName != null && !fileName.isEmpty()) {
-                        isDuplicate = imageRepository.existsByOriginalUrlAndTitleAndDeletedFalse(imageUrl, fileName);
+                    if (urlFileName != null && !urlFileName.isEmpty()) {
+                        isDuplicate = imageRepository.existsByOriginalUrlAndTitleAndDeletedFalse(imageUrl, urlFileName);
                         if (isDuplicate) {
-                            log.info("图片已存在于数据库（URL+文件名匹配），跳过: {}, 文件名: {}", imageUrl, fileName);
+                            log.info("图片已存在于数据库（URL+文件名匹配），跳过: {}, 文件名: {}", imageUrl, urlFileName);
                             response.setSuccess(true);
                             response.setSkipped(true);
                             response.setError("图片已存在（URL+文件名匹配），跳过");
                         }
                     }
                     // 如果无法提取文件名，回退到只检查URL
-                    if (!isDuplicate && fileName == null) {
+                    if (!isDuplicate && urlFileName == null) {
                         isDuplicate = imageRepository.existsByOriginalUrlAndDeletedFalse(imageUrl);
                         if (isDuplicate) {
                             log.info("图片URL已存在于数据库，跳过: {}", imageUrl);
@@ -1473,7 +1473,7 @@ public class ImageServiceImpl implements ImageService {
 
                         // 创建文件名：商品名称 + (序号) + 扩展名
                         String extension = getFileExtensionFromUrl(imageUrl);
-                        String fileName = sanitizeFileName(productName);
+                        fileName = sanitizeFileName(productName);
                         if (totalImages > 1) {
                             fileName += (isMainImage ? "" : "_" + i);
                         }

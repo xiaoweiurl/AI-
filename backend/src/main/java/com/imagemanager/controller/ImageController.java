@@ -4,6 +4,7 @@ import com.imagemanager.dto.*;
 import com.imagemanager.entity.Image;
 import com.imagemanager.repository.ImageRepository;
 import com.imagemanager.entity.BatchDownloadTask;
+import com.imagemanager.service.AuthService;
 import com.imagemanager.service.BatchDownloadTaskService;
 import com.imagemanager.service.ImageService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,6 +44,9 @@ public class ImageController {
     
     @Autowired
     private BatchDownloadTaskService batchDownloadTaskService;
+    
+    @Autowired
+    private AuthService authService;
     
     /**
      * 查询图片列表
@@ -584,12 +588,29 @@ public class ImageController {
      * 从请求中获取当前用户ID
      */
     private String getCurrentUserId(HttpServletRequest request) {
-        // 从session获取用户
-        Object sessionUser = request.getSession().getAttribute("user");
-        if (sessionUser instanceof com.imagemanager.entity.User) {
-            return ((com.imagemanager.entity.User) sessionUser).getId();
+        // 优先从 X-Session-Id header 获取会话（前端传递方式）
+        String sessionId = request.getHeader("X-Session-Id");
+        
+        // 如果 header 没有，再从 Cookie 获取
+        if (sessionId == null && request.getCookies() != null) {
+            for (var cookie : request.getCookies()) {
+                if ("session_id".equals(cookie.getName())) {
+                    sessionId = cookie.getValue();
+                    break;
+                }
+            }
         }
-        throw new RuntimeException("未登录或用户未授权");
+        
+        if (sessionId == null) {
+            throw new RuntimeException("未登录");
+        }
+        
+        LoginResponse.UserInfo user = authService.validateSession(sessionId);
+        if (user == null) {
+            throw new RuntimeException("会话已过期");
+        }
+        
+        return user.getId();
     }
     
     /**

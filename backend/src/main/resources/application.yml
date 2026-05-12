@@ -92,6 +92,13 @@ app:
   watermark:
     remove:
       enabled: false  # 设置为 true 启用去水印功能
+  
+  # 图片增强配置
+  image:
+    enhance: true           # 启用图片增强（锐化、对比度调整）
+    super-resolution: false # 启用超分辨率（2x放大，处理时间较长）
+    # 超分辨率阈值：图片宽度小于此值时进行放大处理
+    super-resolution-threshold: 800
 
 # 日志配置
 logging:

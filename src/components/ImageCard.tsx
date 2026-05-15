@@ -696,8 +696,14 @@ export default function ImageCard({
                   <span className="text-sm text-slate-700 flex-1">移动到相册</span>
                   <ChevronRight className="w-4 h-4 text-slate-400" />
                 </button>
-                {/* 设为主图按钮 - 只在非主图时显示 */}
-                {image.productId && !image.isMainImage && (
+                {/* 设为主图按钮 - 只在有productId且非主图时显示 */}
+                {(() => {
+                  // 调试日志
+                  if (image.productId) {
+                    console.log('[ImageCard] 图片:', image.title, 'productId:', image.productId, 'isMainImage:', image.isMainImage);
+                  }
+                  return image.productId && !image.isMainImage;
+                })() && (
                   <button
                     onClick={handleSetMain}
                     className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-amber-50 transition-colors text-left group"

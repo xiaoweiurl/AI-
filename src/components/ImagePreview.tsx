@@ -162,8 +162,13 @@ export default function ImagePreview({
 
   // 设为主图
   const handleSetAsMainImage = async () => {
-    if (!image?.productId || image?.isMainImage) {
-      toast.error('当前图片不能设为主图');
+    console.log('[ImagePreview] 设为主图点击 - image:', JSON.stringify(image, null, 2));
+    if (!image?.productId) {
+      toast.error('该图片没有关联商品ID，无法设为主图');
+      return;
+    }
+    if (image?.isMainImage) {
+      toast.error('当前图片已经是主图');
       return;
     }
 
@@ -419,18 +424,16 @@ export default function ImagePreview({
               <Download className="w-5 h-5" />
             </Button>
 
-            {/* 设为主图 - 只在有productId且非主图时显示 */}
-            {image.productId && !image.isMainImage && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-white/60 hover:text-yellow-400 hover:bg-white/10"
-                onClick={handleSetAsMainImage}
-                title="设为主图"
-              >
-                <Star className="w-5 h-5" />
-              </Button>
-            )}
+            {/* 设为主图按钮 */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white/60 hover:text-yellow-400 hover:bg-white/10"
+              onClick={handleSetAsMainImage}
+              title="设为主图"
+            >
+              <Star className="w-5 h-5" />
+            </Button>
 
             {/* 删除 */}
             <Button

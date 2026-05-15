@@ -18,6 +18,7 @@ import {
   RotateCw,
   Trash2,
   Edit3,
+  Star,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ImageItem } from './ImageCard';
@@ -144,6 +145,39 @@ export default function ImagePreview({
     } catch (error) {
       console.error('[ImagePreview] 下载失败:', error);
       toast.error('下载失败');
+    }
+  };
+
+  // 设为主图
+  const handleSetAsMainImage = async () => {
+    if (!image?.productId || image?.isMainImage) {
+      toast.error('当前图片不能设为主图');
+      return;
+    }
+
+    try {
+      const sessionId = getSessionId();
+      const response = await fetch(`/api/images/${image.id}/set-main`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-Id': sessionId || '',
+        },
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+
+      if (result.success || result.code === 200) {
+        toast.success('已设为主图');
+        // 刷新页面
+        router.refresh();
+      } else {
+        toast.error(result.message || '设置失败');
+      }
+    } catch (error) {
+      console.error('[ImagePreview] 设为主图失败:', error);
+      toast.error('设置失败');
     }
   };
 
@@ -371,6 +405,19 @@ export default function ImagePreview({
             >
               <Download className="w-5 h-5" />
             </Button>
+
+            {/* 设为主图 - 只在有productId且非主图时显示 */}
+            {image.productId && !image.isMainImage && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white/60 hover:text-yellow-400 hover:bg-white/10"
+                onClick={handleSetAsMainImage}
+                title="设为主图"
+              >
+                <Star className="w-5 h-5" />
+              </Button>
+            )}
 
             {/* 删除 */}
             <Button

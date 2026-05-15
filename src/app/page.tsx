@@ -890,16 +890,26 @@ export default function Home() {
 
   // 批量替换主图
   const handleBatchReplaceMainImage = async () => {
-    if (!confirm('确定要将所有商品的第一张详情图设为主图吗？此操作不可撤销。')) {
+    if (selectedImages.length === 0) {
+      toast.error('请先选择要操作的图片');
+      return;
+    }
+    
+    if (!confirm(`确定要将选中的 ${selectedImages.length} 张图片所属商品的第一张详情图设为主图吗？此操作不可撤销。`)) {
       return;
     }
     try {
       const response = await backendFetch('/images/batch-replace-main-image', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ imageIds: selectedImages }),
       });
       const result = await response.json();
       if (result.success || result.code === 200) {
-        toast.success(`批量替换主图成功！共替换 ${result.data?.updatedCount || 0} 个商品的主图`);
+        toast.success(result.data?.message || '批量替换主图成功');
+        setSelectedImages([]);
         fetchImages(1, false);
       } else {
         toast.error(result.message || '批量替换主图失败');

@@ -3,19 +3,20 @@ import { backendFetch } from '@/lib/backend-proxy';
 
 /**
  * 批量替换主图
- * 把指定显示顺序的详情图批量设为主图
+ * 把选中图片所属商品的第一张详情图批量设为主图
  */
 export async function POST(request: NextRequest) {
     try {
         const cookieHeader = request.headers.get('cookie') || '';
-        const { searchParams } = new URL(request.url);
-        const displayOrder = searchParams.get('displayOrder') || '1';
+        const body = await request.json();
+        const { imageIds } = body;
 
-        const response = await backendFetch(`/images/batch-replace-main-image?displayOrder=${displayOrder}`, {
+        const response = await backendFetch('/images/batch-replace-main-image', {
             method: 'POST',
             requestHeaders: {
                 cookie: cookieHeader,
             },
+            body: JSON.stringify({ imageIds }),
         });
 
         const data = await response.json();

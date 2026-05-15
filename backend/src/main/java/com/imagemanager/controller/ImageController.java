@@ -568,16 +568,30 @@ public class ImageController {
     }
 
     /**
+     * 批量替换主图请求
+     */
+    public static class BatchReplaceMainImageRequest {
+        private List<String> imageIds;
+        
+        public List<String> getImageIds() {
+            return imageIds;
+        }
+        
+        public void setImageIds(List<String> imageIds) {
+            this.imageIds = imageIds;
+        }
+    }
+
+    /**
      * 批量替换主图
-     * 把指定显示顺序的详情图批量设为主图
+     * 把选中图片所属商品的第一张详情图设为主图
      */
     @PostMapping("/batch-replace-main-image")
-    @Operation(summary = "批量替换主图", description = "把指定显示顺序的详情图批量设为主图")
+    @Operation(summary = "批量替换主图", description = "把选中图片所属商品的第一张详情图设为主图")
     public ApiResponse<Map<String, Object>> batchReplaceMainImage(
-            @Parameter(description = "显示顺序（默认1）") @RequestParam(defaultValue = "1") Integer displayOrder,
+            @RequestBody BatchReplaceMainImageRequest request,
             HttpServletRequest httpRequest) {
         log.info("========== 批量替换主图开始 ==========");
-        log.info("目标显示顺序: {}", displayOrder);
         
         String userId = getCurrentUserId(httpRequest);
         if (userId == null) {
@@ -585,11 +599,18 @@ public class ImageController {
             return ApiResponse.error("未登录或用户未授权");
         }
         
+        List<String> imageIds = request.getImageIds();
+        if (imageIds == null || imageIds.isEmpty()) {
+            log.info("!!! 未选择图片");
+            return ApiResponse.error("请选择要操作的图片");
+        }
+        
+        log.info("选中的图片数量: {}", imageIds.size());
+        
         try {
-            Map<String, Object> result = imageService.batchReplaceMainImage(displayOrder);
+            Map<String, Object> result = imageService.batchReplaceMainImageByImageIds(imageIds);
             log.info("========== 批量替换主图完成 ==========");
-            log.info("结果: 成功 {} 个，跳过 {} 个，失败 {} 个", 
-                result.get("successCount"), result.get("skipCount"), result.get("errorCount"));
+            log.info("结果: {}", result.get("message"));
             return ApiResponse.success(result);
         } catch (Exception e) {
             log.error("!!! 批量替换主图失败: {}", e.getMessage(), e);

@@ -20,7 +20,9 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -853,6 +855,105 @@ public class ImageServiceImpl implements ImageService {
         Map<String, Object> result = new HashMap<>();
         result.put("success", true);
         result.put("message", String.format("成功替换 %d 张主图，跳过 %d 张，失败 %d 张", successCount, skipCount, errorCount));
+        result.put("successCount", successCount);
+        result.put("skipCount", skipCount);
+        result.put("errorCount", errorCount);
+        return result;
+    }
+    
+    @Override
+    public Map<String, Object> batchReplaceMainImageByImageIds(List<String> imageIds) {
+        log.info("========== 根据图片ID批量替换主图 ==========");
+        log.info("选中的图片数量: {}", imageIds.size());
+        
+        // 1. 根据图片ID找到所有关联的商品ID
+        Set<String> productIds = new HashSet<>();
+        for (String imageId : imageIds) {
+            Optional<Image> imageOpt = imageRepository.findById(imageId);
+            if (imageOpt.isPresent()) {
+                Image image = imageOpt.get();
+                if (image.getProductId() != null && !image.getProductId().isEmpty()) {
+                    productIds.add(image.getProductId());
+                }
+            }
+        }
+        
+        log.info("关联的商品数量: {}", productIds.size());
+        
+        if (productIds.isEmpty()) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", true);
+            result.put("message", "选中的图片没有关联商品，无需处理");
+            result.put("successCount", 0);
+            result.put("skipCount", 0);
+            result.put("errorCount", 0);
+            return result;
+        }
+        
+        int successCount = 0;
+        int skipCount = 0;
+        int errorCount = 0;
+        
+        // 2. 对每个商品进行处理
+        for (String productId : productIds) {
+            try {
+                // 获取该商品的所有图片
+                List<Image> productImages = imageRepository.findByProductIdAndDeletedOrderByDisplayOrderAsc(productId, false);
+                
+                // 找到当前主图
+                Image oldMainImage = null;
+                for (Image img : productImages) {
+                    if (Boolean.TRUE.equals(img.getIsMainImage())) {
+                        oldMainImage = img;
+                        break;
+                    }
+                }
+                
+                // 找到 displayOrder=1 的详情图
+                Image newMainImage = null;
+                for (Image img : productImages) {
+                    if (img.getDisplayOrder() != null && img.getDisplayOrder() == 1 
+                        && !Boolean.TRUE.equals(img.getIsMainImage())) {
+                        newMainImage = img;
+                        break;
+                    }
+                }
+                
+                if (newMainImage == null) {
+                    skipCount++;
+                    log.info("商品 {} 没有序号为1的详情图，跳过", productId);
+                    continue;
+                }
+                
+                // 将原主图改为详情图
+                if (oldMainImage != null) {
+                    oldMainImage.setIsMainImage(false);
+                    oldMainImage.setDisplayOrder(findNextDisplayOrder(productImages, newMainImage.getId()));
+                    oldMainImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
+                    imageRepository.save(oldMainImage);
+                    log.info("原主图 {} 已变为详情图", oldMainImage.getId());
+                }
+                
+                // 将详情图设为主图
+                newMainImage.setIsMainImage(true);
+                newMainImage.setDisplayOrder(0);
+                newMainImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
+                imageRepository.save(newMainImage);
+                
+                successCount++;
+                log.info("商品 {} 的详情图 {} 已设为主图", productId, newMainImage.getId());
+                
+            } catch (Exception e) {
+                errorCount++;
+                log.error("处理商品 {} 时出错: {}", productId, e.getMessage());
+            }
+        }
+        
+        log.info("========== 批量替换完成：成功 {}，跳过 {}，失败 {} ==========", successCount, skipCount, errorCount);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("message", String.format("成功替换 %d 个商品的主图，跳过 %d 个，失败 %d 个", successCount, skipCount, errorCount));
         result.put("successCount", successCount);
         result.put("skipCount", skipCount);
         result.put("errorCount", errorCount);

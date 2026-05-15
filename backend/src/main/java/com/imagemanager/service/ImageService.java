@@ -97,6 +97,14 @@ public interface ImageService {
     Map<String, Object> batchReplaceMainImage(Integer displayOrder);
     
     /**
+     * 根据选中的图片ID批量替换主图
+     * 找到这些图片所属的商品，然后把每个商品的第一张详情图设为主图
+     * @param imageIds 选中的图片ID列表
+     * @return 更新结果
+     */
+    Map<String, Object> batchReplaceMainImageByImageIds(List<String> imageIds);
+    
+    /**
      * 批量收藏
      */
     void batchFavorite(List<String> ids);

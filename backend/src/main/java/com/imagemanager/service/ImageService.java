@@ -83,6 +83,12 @@ public interface ImageService {
     Image setMainImage(String id);
     
     /**
+     * 批量将顺序为1的详情图设为主图
+     * @return 更新的商品数量
+     */
+    int batchSetFirstDetailAsMainImage();
+    
+    /**
      * 批量收藏
      */
     void batchFavorite(List<String> ids);

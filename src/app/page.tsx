@@ -888,6 +888,28 @@ export default function Home() {
     }
   }, [activeMenuItem, currentUser]);
 
+  // 批量替换主图
+  const handleBatchReplaceMainImage = async () => {
+    if (!confirm('确定要将所有商品的第一张详情图设为主图吗？此操作不可撤销。')) {
+      return;
+    }
+    try {
+      const response = await backendFetch('/images/batch-replace-main-image', {
+        method: 'POST',
+      });
+      const result = await response.json();
+      if (result.success || result.code === 200) {
+        toast.success(`批量替换主图成功！共替换 ${result.data?.updatedCount || 0} 个商品的主图`);
+        fetchImages(1, false);
+      } else {
+        toast.error(result.message || '批量替换主图失败');
+      }
+    } catch (error) {
+      console.error('批量替换主图失败:', error);
+      toast.error('批量替换主图失败');
+    }
+  };
+
   // 登出
   const handleLogout = async () => {
     try {
@@ -1719,6 +1741,7 @@ export default function Home() {
           onFilterClick={() => setFilterPanelOpen(true)}
           onExcelUploadClick={() => setExcelUploadDialogOpen(true)}
           onExportClick={() => setExportDialogOpen(true)}
+          onBatchReplaceMainImage={handleBatchReplaceMainImage}
           hasAlbums={albums.length > 0}
           onAdvancedSearchClick={() => {
             if (showAdvancedSearch) {

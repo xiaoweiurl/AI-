@@ -566,6 +566,34 @@ public class ImageController {
             return ApiResponse.error("查询任务失败");
         }
     }
+
+    /**
+     * 批量替换主图
+     * 把指定显示顺序的详情图批量设为主图
+     */
+    @PostMapping("/batch-replace-main-image")
+    @Operation(summary = "批量替换主图", description = "把指定显示顺序的详情图批量设为主图")
+    public ApiResponse<Map<String, Object>> batchReplaceMainImage(
+            @Parameter(description = "显示顺序（默认1）") @RequestParam(defaultValue = "1") Integer displayOrder) {
+        log.info("========== 批量替换主图开始 ==========");
+        log.info("目标显示顺序: {}", displayOrder);
+        
+        String userId = getCurrentUserId();
+        if (userId == null) {
+            log.info("!!! 用户未登录");
+            return ApiResponse.error("未登录或用户未授权");
+        }
+        
+        try {
+            Map<String, Object> result = imageService.batchReplaceMainImage(displayOrder);
+            log.info("========== 批量替换主图完成 ==========");
+            log.info("结果: 成功 {} 个，失败 {} 个", result.get("successCount"), result.get("failCount"));
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("!!! 批量替换主图失败: {}", e.getMessage(), e);
+            return ApiResponse.error("批量替换主图失败：" + e.getMessage());
+        }
+    }
     
     /**
      * 批量导出相册图片

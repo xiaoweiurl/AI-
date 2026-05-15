@@ -27,6 +27,8 @@ import {
   Upload,
   Download,
   Filter,
+  RefreshCw,
+  ImagePlus,
 } from 'lucide-react';
 
 export interface CurrentUser {
@@ -53,6 +55,7 @@ interface HeaderProps {
   onAdvancedSearchClick?: () => void;
   showAdvancedSearch?: boolean;
   showSearch?: boolean; // 是否显示搜索栏
+  onBatchReplaceMainImage?: () => void; // 批量替换主图
 }
 
 export default function Header({
@@ -72,6 +75,7 @@ export default function Header({
   onAdvancedSearchClick,
   showAdvancedSearch = false,
   showSearch = true, // 默认显示搜索
+  onBatchReplaceMainImage,
 }: HeaderProps) {
   const router = useRouter();
   const [showNotifications, setShowNotifications] = React.useState(false);
@@ -172,6 +176,19 @@ export default function Header({
 
       {/* 右侧工具栏 */}
       <div className="flex items-center gap-3 ml-6">
+        {/* 批量替换主图按钮 */}
+        {onBatchReplaceMainImage && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onBatchReplaceMainImage}
+            className="gap-2 bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span>批量替换主图</span>
+          </Button>
+        )}
+
         {/* 批量操作按钮 */}
         {selectedCount > 0 && (
           <Button

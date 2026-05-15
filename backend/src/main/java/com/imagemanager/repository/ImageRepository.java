@@ -224,6 +224,11 @@ public interface ImageRepository extends JpaRepository<Image, String> {
     List<Image> findByProductIdAndDeletedOrderByDisplayOrderAsc(String productId, boolean deleted);
 
     /**
+     * 查询指定显示顺序的非主图（用于批量替换主图）
+     */
+    List<Image> findByDisplayOrderAndIsMainImageAndDeleted(Integer displayOrder, boolean isMainImage, boolean deleted);
+
+    /**
      * 查询主图（未删除）
      */
     Page<Image> findByIsMainImageAndDeleted(boolean isMainImage, boolean deleted, Pageable pageable);

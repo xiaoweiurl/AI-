@@ -740,6 +740,70 @@ public class ImageServiceImpl implements ImageService {
     }
     
     @Override
+    public int batchSetFirstDetailAsMainImage() {
+        log.info("========== 批量设置第一张详情图为主图 ==========");
+        
+        // 查找所有 displayOrder=1 且 isMainImage=false 的详情图
+        List<Image> firstDetailImages = imageRepository.findByDisplayOrderAndIsMainImageFalseAndDeletedFalse(1);
+        log.info("找到 {} 张顺序为1的详情图", firstDetailImages.size());
+        
+        int successCount = 0;
+        int skipCount = 0;
+        
+        for (Image detailImage : firstDetailImages) {
+            String productId = detailImage.getProductId();
+            if (productId == null) {
+                skipCount++;
+                continue;
+            }
+            
+            // 查找该商品的原主图
+            List<Image> productImages = imageRepository.findByProductIdAndDeletedOrderByDisplayOrderAsc(productId, false);
+            Image oldMainImage = null;
+            for (Image img : productImages) {
+                if (Boolean.TRUE.equals(img.getIsMainImage())) {
+                    oldMainImage = img;
+                    break;
+                }
+            }
+            
+            // 将原主图改为详情图
+            if (oldMainImage != null) {
+                oldMainImage.setIsMainImage(false);
+                oldMainImage.setDisplayOrder(findNextDisplayOrder(productImages, detailImage.getId()));
+                oldMainImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
+                imageRepository.save(oldMainImage);
+                log.info("原主图 {} 已变为详情图", oldMainImage.getId());
+            }
+            
+            // 将当前详情图设为主图
+            detailImage.setIsMainImage(true);
+            detailImage.setDisplayOrder(0);
+            detailImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
+            imageRepository.save(detailImage);
+            
+            successCount++;
+            log.info("详情图 {} 已设为商品 {} 的主图", detailImage.getId(), productId);
+        }
+        
+        log.info("========== 批量设置完成：成功 {}，跳过 {} ==========", successCount, skipCount);
+        return successCount;
+    }
+    
+    /**
+     * 找到下一个可用的 displayOrder
+     */
+    private int findNextDisplayOrder(List<Image> images, String excludeId) {
+        int maxOrder = 0;
+        for (Image img : images) {
+            if (!img.getId().equals(excludeId) && img.getDisplayOrder() != null && img.getDisplayOrder() > maxOrder) {
+                maxOrder = img.getDisplayOrder();
+            }
+        }
+        return maxOrder + 1;
+    }
+    
+    @Override
     public void batchFavorite(List<String> ids) {
         log.info("批量收藏图片，数量：{}", ids.size());
         ids.forEach(id -> {

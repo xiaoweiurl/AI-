@@ -585,9 +585,10 @@ public class ImageController {
         }
         
         try {
-            Map<String, Object> result = imageService.batchSetFirstDetailAsMainImage();
+            Map<String, Object> result = imageService.batchReplaceMainImage(displayOrder);
             log.info("========== 批量替换主图完成 ==========");
-            log.info("结果: 成功 {} 个，失败 {} 个", result.get("successCount"), result.get("failCount"));
+            log.info("结果: 成功 {} 个，跳过 {} 个，失败 {} 个", 
+                result.get("successCount"), result.get("skipCount"), result.get("errorCount"));
             return ApiResponse.success(result);
         } catch (Exception e) {
             log.error("!!! 批量替换主图失败: {}", e.getMessage(), e);

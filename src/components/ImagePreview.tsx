@@ -48,6 +48,18 @@ export default function ImagePreview({
   const [productImages, setProductImages] = React.useState<ImageItem[]>([]); // 该商品的所有图片
   const [loading, setLoading] = React.useState(false);
 
+  // 调试：打印当前图片信息
+  React.useEffect(() => {
+    if (image) {
+      console.log('[ImagePreview] 当前图片信息:', {
+        title: image.title,
+        productId: image.productId,
+        isMainImage: image.isMainImage,
+        id: image.id
+      });
+    }
+  }, [image]);
+
   // 记录预览次数
   React.useEffect(() => {
     if (image?.id) {

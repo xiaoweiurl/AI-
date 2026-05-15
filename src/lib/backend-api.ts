@@ -66,6 +66,9 @@ export interface ImageDTO {
   fileType: string;
   deleted: boolean;
   deletedAt?: string;
+  productId?: string;      // 商品ID（用于关联同一商品的图片）
+  isMainImage?: boolean;   // 是否为主图
+  displayOrder?: number;   // 显示顺序
 }
 
 export interface UploadResponse {

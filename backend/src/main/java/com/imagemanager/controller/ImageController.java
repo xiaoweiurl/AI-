@@ -574,11 +574,12 @@ public class ImageController {
     @PostMapping("/batch-replace-main-image")
     @Operation(summary = "批量替换主图", description = "把指定显示顺序的详情图批量设为主图")
     public ApiResponse<Map<String, Object>> batchReplaceMainImage(
-            @Parameter(description = "显示顺序（默认1）") @RequestParam(defaultValue = "1") Integer displayOrder) {
+            @Parameter(description = "显示顺序（默认1）") @RequestParam(defaultValue = "1") Integer displayOrder,
+            HttpServletRequest httpRequest) {
         log.info("========== 批量替换主图开始 ==========");
         log.info("目标显示顺序: {}", displayOrder);
         
-        String userId = getCurrentUserId();
+        String userId = getCurrentUserId(httpRequest);
         if (userId == null) {
             log.info("!!! 用户未登录");
             return ApiResponse.error("未登录或用户未授权");

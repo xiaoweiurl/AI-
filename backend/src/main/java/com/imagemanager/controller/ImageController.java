@@ -585,7 +585,7 @@ public class ImageController {
         }
         
         try {
-            Map<String, Object> result = imageService.batchReplaceMainImage(displayOrder);
+            Map<String, Object> result = imageService.batchSetFirstDetailAsMainImage();
             log.info("========== 批量替换主图完成 ==========");
             log.info("结果: 成功 {} 个，失败 {} 个", result.get("successCount"), result.get("failCount"));
             return ApiResponse.success(result);

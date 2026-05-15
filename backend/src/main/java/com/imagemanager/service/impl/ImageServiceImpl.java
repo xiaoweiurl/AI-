@@ -18,6 +18,9 @@ import com.imagemanager.service.StorageService;
 import com.imagemanager.util.CharsetUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -788,6 +791,72 @@ public class ImageServiceImpl implements ImageService {
         
         log.info("========== 批量设置完成：成功 {}，跳过 {} ==========", successCount, skipCount);
         return successCount;
+    }
+    
+    @Override
+    public Map<String, Object> batchReplaceMainImage(Integer displayOrder) {
+        log.info("========== 批量替换主图 ==========");
+        log.info("查找 displayOrder={} 的详情图", displayOrder);
+        
+        // 查找所有指定 displayOrder 且 isMainImage=false 的详情图
+        List<Image> detailImages = imageRepository.findByDisplayOrderAndIsMainImageAndDeleted(displayOrder, false, false);
+        log.info("找到 {} 张顺序为{}的详情图", detailImages.size(), displayOrder);
+        
+        int successCount = 0;
+        int skipCount = 0;
+        int errorCount = 0;
+        
+        for (Image detailImage : detailImages) {
+            String productId = detailImage.getProductId();
+            if (productId == null) {
+                skipCount++;
+                log.info("跳过：图片 {} 没有 productId", detailImage.getId());
+                continue;
+            }
+            
+            try {
+                // 查找该商品的原主图
+                List<Image> productImages = imageRepository.findByProductIdAndDeletedOrderByDisplayOrderAsc(productId, false);
+                Image oldMainImage = null;
+                for (Image img : productImages) {
+                    if (Boolean.TRUE.equals(img.getIsMainImage())) {
+                        oldMainImage = img;
+                        break;
+                    }
+                }
+                
+                // 将原主图改为详情图
+                if (oldMainImage != null) {
+                    oldMainImage.setIsMainImage(false);
+                    oldMainImage.setDisplayOrder(findNextDisplayOrder(productImages, detailImage.getId()));
+                    oldMainImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
+                    imageRepository.save(oldMainImage);
+                    log.info("原主图 {} 已变为详情图", oldMainImage.getId());
+                }
+                
+                // 将当前详情图设为主图
+                detailImage.setIsMainImage(true);
+                detailImage.setDisplayOrder(0);
+                detailImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
+                imageRepository.save(detailImage);
+                
+                successCount++;
+                log.info("详情图 {} 已设为商品 {} 的主图", detailImage.getId(), productId);
+            } catch (Exception e) {
+                errorCount++;
+                log.error("处理图片 {} 时出错：{}", detailImage.getId(), e.getMessage());
+            }
+        }
+        
+        log.info("========== 批量替换完成：成功 {}，跳过 {}，失败 {} ==========", successCount, skipCount, errorCount);
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", true);
+        result.put("message", String.format("成功替换 %d 张主图，跳过 %d 张，失败 %d 张", successCount, skipCount, errorCount));
+        result.put("successCount", successCount);
+        result.put("skipCount", skipCount);
+        result.put("errorCount", errorCount);
+        return result;
     }
     
     /**

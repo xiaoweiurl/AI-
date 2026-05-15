@@ -89,6 +89,14 @@ public interface ImageService {
     int batchSetFirstDetailAsMainImage();
     
     /**
+     * 批量替换主图
+     * 把指定显示顺序的详情图批量设为主图
+     * @param displayOrder 显示顺序（默认1）
+     * @return 更新结果
+     */
+    Map<String, Object> batchReplaceMainImage(Integer displayOrder);
+    
+    /**
      * 批量收藏
      */
     void batchFavorite(List<String> ids);

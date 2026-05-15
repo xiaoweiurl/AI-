@@ -1357,6 +1357,9 @@ public class ImageServiceImpl implements ImageService {
                 // 尺寸标识: !cc_xxx, !mq_xxx, !cr_xxx 等
                 // 移除这些后缀后可以获取更大尺寸的图片
                 if (normalized.contains("360buyimg.com") || normalized.contains("jd.com")) {
+                    // 将京东图片的 n5 尺寸替换为 n8（更大尺寸）
+                    normalized = normalized.replace("/n5/", "/n8/");
+                    
                     // 移除京东图片的尺寸后缀 (!cc_200x200.png, !mq130.jpg 等)
                     normalized = normalized.replaceAll("!cc_\\d+x\\d+_pr_asp\\.jpg", ".jpg");
                     normalized = normalized.replaceAll("!cc_\\d+x\\d+_pr_asp\\.png", ".png");

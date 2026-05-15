@@ -744,7 +744,7 @@ public class ImageServiceImpl implements ImageService {
         log.info("========== 批量设置第一张详情图为主图 ==========");
         
         // 查找所有 displayOrder=1 且 isMainImage=false 的详情图
-        List<Image> firstDetailImages = imageRepository.findByDisplayOrderAndIsMainImageFalseAndDeletedFalse(1);
+        List<Image> firstDetailImages = imageRepository.findByDisplayOrderAndIsMainImageAndDeleted(1, false, false);
         log.info("找到 {} 张顺序为1的详情图", firstDetailImages.size());
         
         int successCount = 0;

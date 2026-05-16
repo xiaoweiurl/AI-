@@ -163,10 +163,13 @@ public class ImageServiceImpl implements ImageService {
             }
             
             // 处理相册ID（支持多个，兼容单个的情况）
+            // 支持层级相册：点击父相册时显示所有子相册的图片
             List<String> albumIds = null;
             if (request.getAlbumId() != null && !request.getAlbumId().isEmpty()) {
-                List<String> targetAlbumIds = new java.util.ArrayList<>();
+                albumIds = new java.util.ArrayList<>();
                 
+                // 解析传入的相册ID（可能是逗号分隔的多个ID）
+                List<String> targetAlbumIds = new java.util.ArrayList<>();
                 if (request.getAlbumId().contains(",")) {
                     for (String albumId : request.getAlbumId().split(",")) {
                         targetAlbumIds.add(albumId.trim());
@@ -175,21 +178,12 @@ public class ImageServiceImpl implements ImageService {
                     targetAlbumIds.add(request.getAlbumId());
                 }
                 
-                // 查询每个目标相册的子相册ID
+                // 递归获取每个目标相册及其所有子相册ID
                 for (String albumId : targetAlbumIds) {
-                    albumIds = albumIds == null ? new java.util.ArrayList<>() : albumIds;
-                    if (!albumIds.contains(albumId)) {
-                        albumIds.add(albumId);
-                    }
-                    List<Album> childAlbums = albumRepository.findByParentIdOrderBySortOrderAsc(albumId);
-                    for (Album child : childAlbums) {
-                        if (!albumIds.contains(child.getId())) {
-                            albumIds.add(child.getId());
-                        }
-                    }
+                    collectAllAlbumIds(albumId, albumIds);
                 }
                 
-                log.info("相册ID筛选（含子相册）: {}", albumIds);
+                log.info("相册ID筛选（含所有子相册）: {}", albumIds);
             }
             
             // 处理标签
@@ -2342,6 +2336,34 @@ public class ImageServiceImpl implements ImageService {
                 }
             } catch (Exception e) {
                 log.error("从存储删除图片文件失败: {}", image.getFileKey(), e);
+            }
+        }
+    }
+    
+    /**
+     * 递归获取相册及其所有子相册的ID
+     * 用于层级相册查询：点击父相册时显示所有子相册的图片
+     * 
+     * @param albumId 当前相册ID
+     * @param collectedIds 已收集的相册ID列表
+     */
+    private void collectAllAlbumIds(String albumId, List<String> collectedIds) {
+        if (albumId == null || collectedIds == null) {
+            return;
+        }
+        
+        // 避免重复添加
+        if (!collectedIds.contains(albumId)) {
+            collectedIds.add(albumId);
+        }
+        
+        // 查询直接子相册
+        List<Album> childAlbums = albumRepository.findByParentIdOrderBySortOrderAsc(albumId);
+        
+        // 递归处理每个子相册
+        for (Album child : childAlbums) {
+            if (!collectedIds.contains(child.getId())) {
+                collectAllAlbumIds(child.getId(), collectedIds);
             }
         }
     }

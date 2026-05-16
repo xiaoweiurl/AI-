@@ -98,16 +98,29 @@ export function BatchReplaceMainImageDialog({
 
   // 执行批量替换
   const handleSubmit = async () => {
-    // 收集所有选中的图片ID
-    const imageIdsToReplace = productGroups
-      .filter((group) => group.selectedImageId)
-      .map((group) => group.selectedImageId as string);
+    // 收集所有选中的图片ID，如果没有选择则默认使用顺序1的详情图
+    const imageIdsToReplace: string[] = [];
+    const defaultReplacedCount: number[] = []; // 记录默认替换的商品索引
+
+    productGroups.forEach((group, index) => {
+      if (group.selectedImageId) {
+        // 用户手动选择的
+        imageIdsToReplace.push(group.selectedImageId);
+      } else {
+        // 没有选择，查找顺序1的详情图作为默认
+        const firstDetailImage = group.detailImages.find(
+          (img) => img.displayOrder === 1
+        );
+        if (firstDetailImage) {
+          imageIdsToReplace.push(firstDetailImage.imgId);
+          defaultReplacedCount.push(index);
+        }
+      }
+    });
 
     // 检查是否有可替换的商品
-    const keepUnchangedCount = productGroups.filter((g) => !g.selectedImageId).length;
-    
     if (imageIdsToReplace.length === 0) {
-      toast.warning("没有可替换的商品（所有商品都保持当前主图不变）");
+      toast.warning("没有可替换的商品（所有商品都没有详情图）");
       return;
     }
 
@@ -122,8 +135,10 @@ export function BatchReplaceMainImageDialog({
 
       if (result.success || result.code === 200) {
         let message = `成功替换 ${imageIdsToReplace.length} 个商品的主图`;
-        if (keepUnchangedCount > 0) {
-          message += `，${keepUnchangedCount} 个商品保持不变`;
+        const manualCount = productGroups.filter((g) => g.selectedImageId).length;
+        const defaultCount = defaultReplacedCount.length;
+        if (defaultCount > 0) {
+          message += `（其中 ${defaultCount} 个使用默认顺序1详情图）`;
         }
         toast.success(result.data?.message || message);
         onOpenChange(false);
@@ -174,7 +189,15 @@ export function BatchReplaceMainImageDialog({
                   <Badge variant="outline" className="text-xs">
                     {group.detailImages.length} 张详情图
                   </Badge>
-                  {group.selectedImageId === null && (
+                  {group.selectedImageId ? (
+                    <Badge className="text-xs bg-orange-500 text-white">
+                      已选择
+                    </Badge>
+                  ) : group.detailImages.some(img => img.displayOrder === 1) ? (
+                    <Badge className="text-xs bg-violet-500 text-white">
+                      将使用默认顺序1
+                    </Badge>
+                  ) : (
                     <Badge variant="secondary" className="text-xs bg-gray-200">
                       保持不变
                     </Badge>
@@ -185,44 +208,73 @@ export function BatchReplaceMainImageDialog({
                   {/* 主图预览 */}
                   <div>
                     <p className="text-xs text-gray-500 mb-2">
-                      {group.selectedImageId ? '替换后主图预览' : '当前主图'}
+                      {group.selectedImageId ? '替换后主图预览' : 
+                        (group.detailImages.some(img => img.displayOrder === 1) ? '默认使用顺序1' : '当前主图')}
                     </p>
                     <div className="relative aspect-square rounded-lg overflow-hidden border bg-white">
-                      {/* 如果选中了详情图，显示选中的图片；否则显示当前主图 */}
-                      {group.selectedImageId ? (
-                        (() => {
+                      {/* 获取实际要显示的图片：手动选择 > 默认顺序1 > 当前主图 */}
+                      {(() => {
+                        // 优先使用手动选择的
+                        if (group.selectedImageId) {
                           const selectedImg = group.detailImages.find(img => img.imgId === group.selectedImageId);
-                          return selectedImg ? (
-                            <img
-                              src={selectedImg.url}
-                              alt="替换后主图"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full text-gray-400">
-                              <ImageIcon className="h-8 w-8" />
-                            </div>
+                          if (selectedImg) {
+                            return (
+                              <>
+                                <img
+                                  src={selectedImg.url}
+                                  alt="替换后主图"
+                                  className="w-full h-full object-cover"
+                                />
+                                <Badge className="absolute top-2 left-2 text-xs bg-orange-500 text-white">
+                                  已选择
+                                </Badge>
+                                <div className="absolute bottom-2 left-2 right-2 bg-orange-100 text-orange-700 text-xs rounded px-2 py-1 text-center">
+                                  点击右侧取消选择
+                                </div>
+                              </>
+                            );
+                          }
+                        }
+                        
+                        // 没有手动选择，查找默认顺序1的详情图
+                        const defaultImg = group.detailImages.find(img => img.displayOrder === 1);
+                        if (defaultImg) {
+                          return (
+                            <>
+                              <img
+                                src={defaultImg.url}
+                                alt="默认顺序1"
+                                className="w-full h-full object-cover"
+                              />
+                              <Badge className="absolute top-2 left-2 text-xs bg-violet-500 text-white">
+                                默认顺序1
+                              </Badge>
+                            </>
                           );
-                        })()
-                      ) : group.mainImage ? (
-                        <img
-                          src={group.mainImage.url}
-                          alt="当前主图"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-gray-400">
-                          <ImageIcon className="h-8 w-8" />
-                        </div>
-                      )}
-                      <Badge className={`absolute top-2 left-2 text-xs ${group.selectedImageId ? 'bg-orange-500' : 'bg-violet-500'} text-white`}>
-                        {group.selectedImageId ? '新主图' : '主图'}
-                      </Badge>
-                      {group.selectedImageId && (
-                        <div className="absolute bottom-2 left-2 right-2 bg-orange-100 text-orange-700 text-xs rounded px-2 py-1 text-center">
-                          点击右侧取消选择
-                        </div>
-                      )}
+                        }
+                        
+                        // 没有详情图或没有顺序1，显示当前主图
+                        if (group.mainImage) {
+                          return (
+                            <>
+                              <img
+                                src={group.mainImage.url}
+                                alt="当前主图"
+                                className="w-full h-full object-cover"
+                              />
+                              <Badge className="absolute top-2 left-2 text-xs bg-gray-500 text-white">
+                                保持不变
+                              </Badge>
+                            </>
+                          );
+                        }
+                        
+                        return (
+                          <div className="flex items-center justify-center h-full text-gray-400">
+                            <ImageIcon className="h-8 w-8" />
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -238,37 +290,44 @@ export function BatchReplaceMainImageDialog({
                       </div>
                     ) : (
                       <div className="grid grid-cols-3 gap-2">
-                        {group.detailImages.map((img, imgIndex) => (
-                          <div
-                            key={img.imgId || `detail-${groupIndex}-${imgIndex}`}
-                            onClick={() => handleSelectImage(group.productId, img.imgId)}
-                            className={`
-                              relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer
-                              transition-all duration-200 hover:ring-2 hover:ring-violet-300
-                              ${group.selectedImageId === img.imgId
-                                ? "border-orange-500 ring-2 ring-orange-300"
-                                : "border-gray-200"
-                              }
-                            `}
-                          >
-                            <img
-                              src={img.url}
-                              alt={`详情图 ${img.displayOrder}`}
-                              className="w-full h-full object-cover"
-                            />
-                            <Badge
-                              variant="secondary"
-                              className="absolute bottom-1 left-1 text-xs"
+                        {group.detailImages.map((img, imgIndex) => {
+                          // 判断是否选中：手动选择 > 默认顺序1
+                          const isSelected = group.selectedImageId
+                            ? group.selectedImageId === img.imgId
+                            : img.displayOrder === 1;
+                          
+                          return (
+                            <div
+                              key={img.imgId || `detail-${groupIndex}-${imgIndex}`}
+                              onClick={() => handleSelectImage(group.productId, img.imgId)}
+                              className={`
+                                relative aspect-square rounded-lg overflow-hidden border-2 cursor-pointer
+                                transition-all duration-200 hover:ring-2 hover:ring-violet-300
+                                ${isSelected
+                                  ? "border-orange-500 ring-2 ring-orange-300"
+                                  : "border-gray-200"
+                                }
+                              `}
                             >
-                              顺序 {img.displayOrder}
-                            </Badge>
-                            {group.selectedImageId === img.imgId && (
-                              <div className="absolute top-1 right-1 bg-orange-500 rounded-full p-0.5">
-                                <Check className="h-3 w-3 text-white" />
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                              <img
+                                src={img.url}
+                                alt={`详情图 ${img.displayOrder}`}
+                                className="w-full h-full object-cover"
+                              />
+                              <Badge
+                                variant="secondary"
+                                className="absolute bottom-1 left-1 text-xs"
+                              >
+                                顺序 {img.displayOrder}
+                              </Badge>
+                              {isSelected && (
+                                <div className="absolute top-1 right-1 bg-orange-500 rounded-full p-0.5">
+                                  <Check className="h-3 w-3 text-white" />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

@@ -856,18 +856,21 @@ public class ImageServiceImpl implements ImageService {
                     }
                 }
                 
-                // 将原主图改为详情图
+                // 保存新主图原本的顺序，用于交换
+                int originalDisplayOrder = newMainImage.getDisplayOrder() != null ? newMainImage.getDisplayOrder() : 1;
+                
+                // 将原主图改为详情图，继承新主图原本的顺序
                 if (oldMainImage != null) {
                     oldMainImage.setIsMainImage(false);
-                    oldMainImage.setDisplayOrder(findNextDisplayOrder(productImages, newMainImageId));
+                    oldMainImage.setDisplayOrder(originalDisplayOrder);  // 继承新主图原本的顺序
                     oldMainImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
                     imageRepository.save(oldMainImage);
-                    log.info("原主图 {} 已变为详情图", oldMainImage.getId());
+                    log.info("原主图 {} 已变为详情图，顺序={}", oldMainImage.getId(), originalDisplayOrder);
                 }
                 
                 // 将选中的详情图设为主图
                 newMainImage.setIsMainImage(true);
-                newMainImage.setDisplayOrder(0);
+                newMainImage.setDisplayOrder(0);  // 主图统一为顺序0
                 newMainImage.setUpdatedAt(LocalDateTime.now(BEIJING_ZONE));
                 imageRepository.save(newMainImage);
                 

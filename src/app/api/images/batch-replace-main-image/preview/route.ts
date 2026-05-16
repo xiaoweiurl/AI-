@@ -63,15 +63,30 @@ export async function POST(request: NextRequest) {
             if (productImagesResult.success || productImagesResult.code === 200) {
                 const productImages = productImagesResult.data || [];
                 
-                // 分离主图和详情图
+                // 分离主图和详情图，并映射字段名
                 const mainImage = productImages.find((img: any) => img.isMainImage === true) || null;
                 const detailImages = productImages
                     .filter((img: any) => img.isMainImage !== true)
-                    .sort((a: any, b: any) => (a.displayOrder || 999) - (b.displayOrder || 999));
+                    .sort((a: any, b: any) => (a.displayOrder || 999) - (b.displayOrder || 999))
+                    .map((img: any) => ({
+                        imgId: img.id,  // 后端返回 id，映射为 imgId
+                        url: img.url,
+                        title: img.title,
+                        isMainImage: img.isMainImage,
+                        displayOrder: img.displayOrder,
+                        productId: img.productId,
+                    }));
 
                 productGroups.push({
                     productId,
-                    mainImage,
+                    mainImage: mainImage ? {
+                        imgId: mainImage.id,
+                        url: mainImage.url,
+                        title: mainImage.title,
+                        isMainImage: mainImage.isMainImage,
+                        displayOrder: mainImage.displayOrder,
+                        productId: mainImage.productId,
+                    } : null,
                     detailImages,
                 });
             }

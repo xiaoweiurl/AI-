@@ -73,7 +73,7 @@ export function getBackendUrl(): string {
 interface BackendRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
-  headers?: Record<string, string>;
+  headers?: Record<string, string | undefined>;
   timeout?: number;
   credentials?: RequestCredentials;
   /**
@@ -100,10 +100,15 @@ export async function backendFetch(
     credentials: 'include',
   };
 
-  // 构建 headers
-  const headers: Record<string, string> = {
-    ...(options.headers || {}),
-  };
+  // 构建 headers，过滤掉 undefined 值
+  const inputHeaders = options.headers || {};
+  const headers: Record<string, string> = {};
+  
+  for (const [key, value] of Object.entries(inputHeaders)) {
+    if (value !== undefined) {
+      headers[key] = value;
+    }
+  }
 
   // 如果是POST/PUT/PATCH请求，自动添加Content-Type
   if (options.body && options.method !== 'GET' && !headers['Content-Type']) {
@@ -113,7 +118,7 @@ export async function backendFetch(
   // 获取 sessionId（支持多种方式）
   // 1. 从 headers 中直接获取 X-Session-Id
   // 2. 从 requestHeaders 中获取（兼容旧方式）
-  let sessionId = headers['X-Session-Id'];
+  let sessionId: string | null | undefined = headers['X-Session-Id'];
   if (!sessionId) {
     sessionId = getSessionId(options.requestHeaders);
   }

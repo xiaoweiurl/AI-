@@ -105,6 +105,20 @@ public interface ImageService {
     Map<String, Object> batchReplaceMainImageByImageIds(List<String> imageIds);
     
     /**
+     * 根据图片ID列表查询图片
+     * @param ids 图片ID列表
+     * @return 图片列表
+     */
+    List<Image> getImagesByIds(List<String> ids);
+    
+    /**
+     * 根据商品ID查询所有图片
+     * @param productId 商品ID
+     * @return 图片列表
+     */
+    List<Image> getImagesByProductId(String productId);
+    
+    /**
      * 批量收藏
      */
     void batchFavorite(List<String> ids);

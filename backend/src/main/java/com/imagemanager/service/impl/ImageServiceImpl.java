@@ -911,6 +911,26 @@ public class ImageServiceImpl implements ImageService {
     }
     
     @Override
+    public List<Image> getImagesByIds(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Image> images = new ArrayList<>();
+        for (String id : ids) {
+            imageRepository.findById(id).ifPresent(images::add);
+        }
+        return images;
+    }
+    
+    @Override
+    public List<Image> getImagesByProductId(String productId) {
+        if (productId == null || productId.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return imageRepository.findByProductIdAndDeletedOrderByDisplayOrderAsc(productId, false);
+    }
+    
+    @Override
     public void batchFavorite(List<String> ids) {
         log.info("批量收藏图片，数量：{}", ids.size());
         ids.forEach(id -> {

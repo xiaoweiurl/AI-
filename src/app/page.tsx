@@ -17,6 +17,7 @@ import DocumentManager from '@/components/DocumentManager';
 import ExcelBatchUpload from '@/components/ExcelBatchUpload';
 import ExportDialog from '@/components/ExportDialog';
 import UserMenu from '@/components/UserMenu';
+import { BatchReplaceMainImageDialog } from '@/components/BatchReplaceMainImageDialog';
 import type { SmartAlbumInfo } from '@/components/Sidebar';
 import { PRESET_SMART_ALBUMS, type MatchingConfig } from '@/lib/api/types';
 import { filterImagesBySmartAlbum, getSmartAlbumImageCount } from '@/lib/smart-album-engine';
@@ -245,6 +246,7 @@ export default function Home() {
   const [isLoadingSmartAlbums, setIsLoadingSmartAlbums] = React.useState(false);
   const [trashCount, setTrashCount] = React.useState(0); // 回收站主图数量（从后端获取）
   const [selectedAlbumIds, setSelectedAlbumIds] = React.useState<string[]>([]); // 当前选中的相册及其子相册 ID
+  const [showBatchReplaceDialog, setShowBatchReplaceDialog] = React.useState(false); // 批量替换主图弹窗
 
   // 获取智能相册列表
   const fetchSmartAlbums = React.useCallback(async () => {
@@ -893,36 +895,14 @@ export default function Home() {
     }
   }, [activeMenuItem, currentUser]);
 
-  // 批量替换主图
+  // 批量替换主图 - 打开选择弹窗
   const handleBatchReplaceMainImage = async () => {
     if (selectedImages.length === 0) {
       toast.error('请先选择要操作的图片');
       return;
     }
-    
-    if (!confirm(`确定要将选中的 ${selectedImages.length} 张图片所属商品的第一张详情图设为主图吗？此操作不可撤销。`)) {
-      return;
-    }
-    try {
-      const response = await backendFetch('/images/batch-replace-main-image', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ imageIds: selectedImages }),
-      });
-      const result = await response.json();
-      if (result.success || result.code === 200) {
-        toast.success(result.data?.message || '批量替换主图成功');
-        setSelectedImages([]);
-        fetchImages(1, false);
-      } else {
-        toast.error(result.message || '批量替换主图失败');
-      }
-    } catch (error) {
-      console.error('批量替换主图失败:', error);
-      toast.error('批量替换主图失败');
-    }
+    // 打开弹窗让用户选择要替换的图片
+    setShowBatchReplaceDialog(true);
   };
 
   // 登出
@@ -2258,6 +2238,17 @@ export default function Home() {
         albums={albums}
         open={exportDialogOpen}
         onOpenChange={setExportDialogOpen}
+      />
+      
+      {/* 批量替换主图弹窗 */}
+      <BatchReplaceMainImageDialog
+        open={showBatchReplaceDialog}
+        onOpenChange={setShowBatchReplaceDialog}
+        selectedImageIds={selectedImages}
+        onSuccess={() => {
+          setSelectedImages([]);
+          fetchImages(1, false);
+        }}
       />
     </div>
   );

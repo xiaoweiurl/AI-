@@ -619,6 +619,35 @@ public class ImageController {
     }
     
     /**
+     * 根据图片ID列表查询图片
+     * 用于批量替换主图预览
+     */
+    @GetMapping("/by-ids")
+    @Operation(summary = "根据ID列表查询图片", description = "批量获取指定ID的图片信息")
+    public ApiResponse<List<Image>> getImagesByIds(
+            @Parameter(description = "图片ID列表，逗号分隔") @RequestParam String ids) {
+        if (ids == null || ids.isEmpty()) {
+            return ApiResponse.success(Collections.emptyList());
+        }
+        
+        List<String> idList = Arrays.asList(ids.split(","));
+        List<Image> images = imageService.getImagesByIds(idList);
+        return ApiResponse.success(images);
+    }
+    
+    /**
+     * 根据商品ID查询所有图片
+     * 用于批量替换主图预览
+     */
+    @GetMapping("/by-product/{productId}")
+    @Operation(summary = "根据商品ID查询图片", description = "获取指定商品的所有图片")
+    public ApiResponse<List<Image>> getImagesByProductId(
+            @Parameter(description = "商品ID") @PathVariable String productId) {
+        List<Image> images = imageService.getImagesByProductId(productId);
+        return ApiResponse.success(images);
+    }
+    
+    /**
      * 批量导出相册图片
      * 按相册分组，每个相册一个文件夹，文件夹内按商品ID再分小文件夹
      * 主图命名 main.{ext}，详情图命名 detail_1.{ext}、detail_2.{ext} 等

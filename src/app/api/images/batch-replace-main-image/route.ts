@@ -7,15 +7,18 @@ import { backendFetch } from '@/lib/backend-proxy';
  */
 export async function POST(request: NextRequest) {
     try {
-        const cookieHeader = request.headers.get('cookie') || '';
+        // 获取 session_id
+        const cookieStore = request.cookies;
+        const sessionId = cookieStore.get('session_id')?.value;
+        
+        console.log('[API] 批量替换主图 - sessionId:', sessionId ? `${sessionId.substring(0, 8)}...` : 'null');
+        
         const body = await request.json();
         const { imageIds } = body;
 
         const response = await backendFetch('/images/batch-replace-main-image', {
             method: 'POST',
-            requestHeaders: {
-                cookie: cookieHeader,
-            },
+            headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
             body: JSON.stringify({ imageIds }),
         });
 

@@ -91,9 +91,6 @@ export async function backendFetch(
 ): Promise<Response> {
   const url = `${BACKEND_API_URL}${endpoint}`;
 
-  // 获取 sessionId（支持服务端和客户端）
-  const sessionId = getSessionId(options.requestHeaders);
-
   // 初始化 fetchOptions
   const fetchOptions: RequestInit = {
     method: options.method || 'GET',
@@ -111,6 +108,14 @@ export async function backendFetch(
   // 如果是POST/PUT/PATCH请求，自动添加Content-Type
   if (options.body && options.method !== 'GET' && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
+  }
+
+  // 获取 sessionId（支持多种方式）
+  // 1. 从 headers 中直接获取 X-Session-Id
+  // 2. 从 requestHeaders 中获取（兼容旧方式）
+  let sessionId = headers['X-Session-Id'];
+  if (!sessionId) {
+    sessionId = getSessionId(options.requestHeaders);
   }
 
   // 添加 sessionId 到请求头（关键！）

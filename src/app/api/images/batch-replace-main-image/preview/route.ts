@@ -7,7 +7,13 @@ import { backendFetch } from '@/lib/backend-proxy';
  */
 export async function POST(request: NextRequest) {
     try {
-        const cookieHeader = request.headers.get('cookie') || '';
+        // 获取所有 cookies 并构建 cookie header
+        const cookieStore = request.cookies;
+        const sessionId = cookieStore.get('session_id')?.value;
+        const cookieHeader = sessionId ? `session_id=${sessionId}` : '';
+        
+        console.log('[API] 预览批量替换主图 - sessionId:', sessionId ? `${sessionId.substring(0, 8)}...` : 'null');
+        
         const body = await request.json();
         const { imageIds } = body;
 
@@ -22,9 +28,7 @@ export async function POST(request: NextRequest) {
         // 先获取这些图片的详情，拿到商品ID
         const imageDetailsResponse = await backendFetch(`/images/by-ids?ids=${imageIds.join(',')}`, {
             method: 'GET',
-            requestHeaders: {
-                cookie: cookieHeader,
-            },
+            headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
         });
         const imageDetailsResult = await imageDetailsResponse.json();
 
@@ -52,9 +56,7 @@ export async function POST(request: NextRequest) {
             // 获取该商品的所有图片
             const productImagesResponse = await backendFetch(`/images/by-product/${productId}`, {
                 method: 'GET',
-                requestHeaders: {
-                    cookie: cookieHeader,
-                },
+                headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
             });
             const productImagesResult = await productImagesResponse.json();
 

@@ -59,6 +59,12 @@ public interface ImageRepository extends JpaRepository<Image, String> {
     List<Image> findByDeletedFalseAndIsMainImageTrue();
     
     /**
+     * 统计未删除的主图数量
+     */
+    @Query("SELECT COUNT(i) FROM Image i WHERE i.deleted = false AND i.isMainImage = true")
+    long countByDeletedFalseAndIsMainImageTrue();
+    
+    /**
      * 查询未删除的主图 - 带条件查询（数据库分页）
      */
     @Query("SELECT i FROM Image i WHERE i.deleted = false AND i.isMainImage = true " +

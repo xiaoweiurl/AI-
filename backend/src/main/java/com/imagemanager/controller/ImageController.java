@@ -681,28 +681,29 @@ public class ImageController {
      */
     @GetMapping("/export/{albumId}")
     @Operation(summary = "导出单个相册", description = "导出单个相册的所有图片为ZIP文件")
-    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> exportAlbumImages(
-            @PathVariable String albumId) {
+    public void exportAlbumImages(
+            @PathVariable String albumId,
+            jakarta.servlet.http.HttpServletResponse response) throws Exception {
         log.info("导出单个相册：{}", albumId);
         
         String fileName = "album_" + albumId + "_export.zip";
         
-        org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody stream = outputStream -> {
-            // Controller 负责创建和关闭 ZipOutputStream
-            try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(outputStream, java.nio.charset.StandardCharsets.UTF_8)) {
-                imageService.exportAlbumImages(albumId, zos);
-                // try-with-resources 会自动调用 zos.close()，内部会调用 finish()
-            } catch (Exception e) {
-                log.error("导出失败", e);
-                throw new RuntimeException("导出失败: " + e.getMessage(), e);
+        // 设置响应头
+        response.setContentType("application/zip");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + 
+                new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1) + "\"");
+        
+        // 同步写入ZIP
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8)) {
+            imageService.exportAlbumImages(albumId, zos);
+            zos.flush();
+        } catch (Exception e) {
+            log.error("导出失败", e);
+            // 如果响应还未提交，返回错误
+            if (!response.isCommitted()) {
+                response.setStatus(500);
             }
-        };
-        
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-        headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1));
-        
-        return new org.springframework.http.ResponseEntity<>(stream, headers, org.springframework.http.HttpStatus.OK);
+        }
     }
     
     /**
@@ -711,27 +712,28 @@ public class ImageController {
      */
     @PostMapping("/export/batch")
     @Operation(summary = "批量导出多个相册", description = "导出多个相册的图片为ZIP文件")
-    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> exportMultipleAlbums(
-            @RequestBody java.util.List<String> albumIds) {
+    public void exportMultipleAlbums(
+            @RequestBody java.util.List<String> albumIds,
+            jakarta.servlet.http.HttpServletResponse response) throws Exception {
         log.info("批量导出多个相册，数量：{}", albumIds.size());
         
         String fileName = "albums_export.zip";
         
-        org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody stream = outputStream -> {
-            // Controller 负责创建和关闭 ZipOutputStream
-            try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(outputStream, java.nio.charset.StandardCharsets.UTF_8)) {
-                imageService.exportMultipleAlbums(albumIds, zos);
-                // try-with-resources 会自动调用 zos.close()，内部会调用 finish()
-            } catch (Exception e) {
-                log.error("批量导出失败", e);
-                throw new RuntimeException("批量导出失败: " + e.getMessage(), e);
+        // 设置响应头
+        response.setContentType("application/zip");
+        response.setHeader("Content-Disposition", "attachment; filename=\"" + 
+                new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1) + "\"");
+        
+        // 同步写入ZIP
+        try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8)) {
+            imageService.exportMultipleAlbums(albumIds, zos);
+            zos.flush();
+        } catch (Exception e) {
+            log.error("批量导出失败", e);
+            // 如果响应还未提交，返回错误
+            if (!response.isCommitted()) {
+                response.setStatus(500);
             }
-        };
-        
-        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-        headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1));
-        
-        return new org.springframework.http.ResponseEntity<>(stream, headers, org.springframework.http.HttpStatus.OK);
+        }
     }
 }

@@ -693,13 +693,19 @@ public class ImageController {
         response.setHeader("Content-Disposition", "attachment; filename=\"" + 
                 new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1) + "\"");
         
-        java.util.zip.ZipOutputStream zos = null;
+        // 使用 Apache Commons Compress 的 ZipArchiveOutputStream，支持 ZIP64
+        org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos = null;
         try {
-            zos = new java.util.zip.ZipOutputStream(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
-            // 启用 ZIP64 扩展支持大文件（超过4GB）
-            zos.setMethod(java.util.zip.ZipOutputStream.DEFLATED);
+            zos = new org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream(response.getOutputStream());
+            zos.setEncoding("UTF-8");
+            // 启用 ZIP64 扩展，支持超过 4GB 的文件
+            zos.setUseZip64(org.apache.commons.compress.archivers.zip.Zip64Mode.AsNeeded);
+            // 使用压缩
+            zos.setMethod(org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream.DEFLATED);
+            zos.setLevel(java.util.zip.Deflater.BEST_SPEED);
+            
             imageService.exportAlbumImages(albumId, zos);
-            // 显式调用 finish() 完成 ZIP 结构
+            
             zos.finish();
             zos.flush();
             log.info("导出成功：{}", albumId);
@@ -733,13 +739,19 @@ public class ImageController {
         response.setHeader("Content-Disposition", "attachment; filename=\"" + 
                 new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1) + "\"");
         
-        java.util.zip.ZipOutputStream zos = null;
+        // 使用 Apache Commons Compress 的 ZipArchiveOutputStream，支持 ZIP64
+        org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos = null;
         try {
-            zos = new java.util.zip.ZipOutputStream(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
-            // 启用 ZIP64 扩展支持大文件（超过4GB）
-            zos.setMethod(java.util.zip.ZipOutputStream.DEFLATED);
+            zos = new org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream(response.getOutputStream());
+            zos.setEncoding("UTF-8");
+            // 启用 ZIP64 扩展，支持超过 4GB 的文件
+            zos.setUseZip64(org.apache.commons.compress.archivers.zip.Zip64Mode.AsNeeded);
+            // 使用压缩
+            zos.setMethod(org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream.DEFLATED);
+            zos.setLevel(java.util.zip.Deflater.BEST_SPEED);
+            
             imageService.exportMultipleAlbums(albumIds, zos);
-            // 显式调用 finish() 完成 ZIP 结构
+            
             zos.finish();
             zos.flush();
             log.info("批量导出成功，数量：{}", albumIds.size());

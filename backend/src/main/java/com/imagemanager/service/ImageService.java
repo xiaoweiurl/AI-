@@ -180,14 +180,14 @@ public interface ImageService {
     /**
      * 导出单个相册的所有图片
      * @param albumId 相册ID
-     * @param zos ZipOutputStream，由调用者创建和关闭
+     * @param zos ZipArchiveOutputStream，由调用者创建和关闭
      */
-    void exportAlbumImages(String albumId, java.util.zip.ZipOutputStream zos) throws Exception;
+    void exportAlbumImages(String albumId, org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos) throws Exception;
     
     /**
      * 导出多个相册的图片
      * @param albumIds 相册ID列表
-     * @param zos ZipOutputStream，由调用者创建和关闭
+     * @param zos ZipArchiveOutputStream，由调用者创建和关闭
      */
-    void exportMultipleAlbums(List<String> albumIds, java.util.zip.ZipOutputStream zos) throws Exception;    
+    void exportMultipleAlbums(List<String> albumIds, org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos) throws Exception;    
 }

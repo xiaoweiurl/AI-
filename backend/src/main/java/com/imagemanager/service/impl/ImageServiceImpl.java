@@ -43,8 +43,6 @@ import java.util.stream.Collectors;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.awt.image.BufferedImage;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 /**
  * 图片服务实现类
@@ -2161,7 +2159,7 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public void exportAlbumImages(String albumId, ZipOutputStream zos) throws Exception {
+    public void exportAlbumImages(String albumId, org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos) throws Exception {
         log.info("导出相册图片：{}", albumId);
         
         // 获取相册信息
@@ -2216,7 +2214,7 @@ public class ImageServiceImpl implements ImageService {
     }
     
     @Override
-    public void exportMultipleAlbums(List<String> albumIds, ZipOutputStream zos) throws Exception {
+    public void exportMultipleAlbums(List<String> albumIds, org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos) throws Exception {
         log.info("批量导出多个相册，数量：{}", albumIds.size());
         
         int totalImages = 0;
@@ -2305,7 +2303,7 @@ public class ImageServiceImpl implements ImageService {
      * 导出单个商品的图片到ZIP
      * @return 导出结果（成功数和失败数）
      */
-    private ExportResult exportProductImages(ZipOutputStream zos, List<Image> productImageList, String productFolderName) throws Exception {
+    private ExportResult exportProductImages(org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos, List<Image> productImageList, String productFolderName) throws Exception {
         // 按主图和详情图分组
         List<Image> mainImages = productImageList.stream()
                 .filter(img -> Boolean.TRUE.equals(img.getIsMainImage()))
@@ -2355,7 +2353,7 @@ public class ImageServiceImpl implements ImageService {
      * 支持从本地存储(fileKey)或URL下载图片
      * @return 是否成功添加
      */
-    private boolean addImageToZip(ZipOutputStream zos, Image image, String folderName, String prefix, Integer detailIndex) {
+    private boolean addImageToZip(org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream zos, Image image, String folderName, String prefix, Integer detailIndex) {
         byte[] imageData = null;
         
         // 方式1：从本地存储读取（thumbnailUrl存储了完整URL或本地路径）
@@ -2430,22 +2428,24 @@ public class ImageServiceImpl implements ImageService {
             fileName = String.format("%s/主图_%s%s", folderName, baseName, extension);
         }
         
-        // 添加到ZIP - 确保条目正确关闭
-        ZipEntry entry = new ZipEntry(fileName);
-        // 设置已知的文件大小，让 ZipOutputStream 可以正确启用 ZIP64 扩展
+        // 使用 Apache Commons Compress 的 ZipArchiveEntry
+        org.apache.commons.compress.archivers.zip.ZipArchiveEntry entry = 
+            new org.apache.commons.compress.archivers.zip.ZipArchiveEntry(fileName);
         entry.setSize(imageData.length);
-        entry.setCompressedSize(-1);  // 让系统自动计算压缩大小
+        // 设置压缩方法
+        entry.setMethod(org.apache.commons.compress.archivers.zip.ZipArchiveEntry.DEFLATED);
+        
         try {
-            zos.putNextEntry(entry);
+            zos.putArchiveEntry(entry);
             zos.write(imageData);
-            zos.closeEntry();
+            zos.closeArchiveEntry();
             log.debug("添加图片到ZIP：{} ({} bytes)", fileName, imageData.length);
             return true;
         } catch (Exception e) {
             log.error("添加图片到ZIP失败：{}", image.getId(), e);
             // 尝试关闭当前条目以避免损坏ZIP
             try {
-                zos.closeEntry();
+                zos.closeArchiveEntry();
             } catch (Exception ignored) {}
             return false;
         }

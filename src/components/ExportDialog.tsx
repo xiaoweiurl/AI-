@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Download, FolderOpen, Loader2 } from 'lucide-react';
+import { Download, FolderOpen, FolderTree, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { type Album } from '@/components/MoveToAlbumDialog';
 
@@ -33,12 +33,67 @@ export default function ExportDialog({ albums, trigger, open, onOpenChange }: Ex
   const isOpen = isControlled ? open : internalOpen;
   const setIsOpen = isControlled ? (onOpenChange || (() => {})) : setInternalOpen;
 
+  // 构建相册树结构
+  const buildAlbumTree = (albums: Album[]) => {
+    const albumMap = new Map<string, Album & { children: Album[] }>();
+    const rootAlbums: (Album & { children: Album[] })[] = [];
+
+    // 初始化所有相册
+    albums.forEach(album => {
+      albumMap.set(album.id, { ...album, children: [] });
+    });
+
+    // 构建树结构
+    albums.forEach(album => {
+      const node = albumMap.get(album.id)!;
+      if (album.parentId && albumMap.has(album.parentId)) {
+        albumMap.get(album.parentId)!.children.push(node);
+      } else {
+        rootAlbums.push(node);
+      }
+    });
+
+    return rootAlbums;
+  };
+
+  // 获取相册及其所有子相册的ID
+  const getAlbumWithDescendants = (albumId: string): string[] => {
+    const result: string[] = [albumId];
+    const albumTree = buildAlbumTree(albums);
+    
+    const findChildren = (nodes: (Album & { children: Album[] })[]) => {
+      for (const node of nodes) {
+        if (node.id === albumId) {
+          const collectChildren = (n: (Album & { children: Album[] })[]) => {
+            for (const child of n) {
+              result.push(child.id);
+              if (child.children.length > 0) {
+                collectChildren(child.children as (Album & { children: Album[] })[]);
+              }
+            }
+          };
+          collectChildren(node.children as (Album & { children: Album[] })[]);
+          return;
+        }
+        findChildren(node.children as (Album & { children: Album[] })[]);
+      }
+    };
+    
+    findChildren(albumTree);
+    return result;
+  };
+
   const handleToggleAlbum = (albumId: string) => {
-    setSelectedAlbums((prev) =>
-      prev.includes(albumId)
-        ? prev.filter((id) => id !== albumId)
-        : [...prev, albumId]
-    );
+    const albumIds = getAlbumWithDescendants(albumId);
+    
+    setSelectedAlbums((prev) => {
+      // 如果已经选中，则取消选中该相册及其所有子相册
+      if (prev.includes(albumId)) {
+        return prev.filter((id) => !albumIds.includes(id));
+      }
+      // 否则选中该相册及其所有子相册
+      return [...new Set([...prev, ...albumIds])];
+    });
   };
 
   const handleSelectAll = () => {
@@ -116,6 +171,59 @@ export default function ExportDialog({ albums, trigger, open, onOpenChange }: Ex
     }
   };
 
+  // 渲染相册树
+  const renderAlbumTree = (nodes: (Album & { children: Album[] })[], level = 0) => {
+    return nodes.map((album) => {
+      const hasChildren = album.children && album.children.length > 0;
+      const isParent = hasChildren;
+      
+      return (
+        <React.Fragment key={album.id}>
+          <label
+            className={cn(
+              "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
+              selectedAlbums.includes(album.id)
+                ? "bg-violet-50 border border-violet-200"
+                : "hover:bg-slate-50 border border-transparent"
+            )}
+            style={{ paddingLeft: `${12 + level * 24}px` }}
+          >
+            <Checkbox
+              checked={selectedAlbums.includes(album.id)}
+              onCheckedChange={() => handleToggleAlbum(album.id)}
+              className={cn(
+                selectedAlbums.includes(album.id)
+                  ? "bg-violet-600 border-violet-600"
+                  : ""
+              )}
+            />
+            {isParent ? (
+              <FolderTree className="w-4 h-4 text-violet-500" />
+            ) : (
+              <FolderOpen className="w-4 h-4 text-slate-400" />
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-slate-800 truncate">
+                {album.name}
+                {isParent && (
+                  <span className="ml-2 text-xs text-violet-500 font-normal">
+                    (含 {album.children!.length} 个子相册)
+                  </span>
+                )}
+              </p>
+              <p className="text-xs text-slate-400">
+                {album.imageCount || 0} 张图片
+              </p>
+            </div>
+          </label>
+          {hasChildren && renderAlbumTree(album.children as (Album & { children: Album[] })[], level + 1)}
+        </React.Fragment>
+      );
+    });
+  };
+
+  const albumTree = buildAlbumTree(albums);
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
@@ -125,43 +233,14 @@ export default function ExportDialog({ albums, trigger, open, onOpenChange }: Ex
         <DialogHeader>
           <DialogTitle>批量导出相册</DialogTitle>
           <DialogDescription>
-            选择要导出的相册，导出的 ZIP 文件将按商品分组存放
+            选择要导出的相册，选中父相册将自动包含所有子相册。导出结构：父相册/子相册/商品名称/主图+详情图
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
-          {/* 相册列表 */}
-          <div className="max-h-64 overflow-y-auto space-y-2 border rounded-lg p-2">
-            {albums.map((album) => (
-              <label
-                key={album.id}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors",
-                  selectedAlbums.includes(album.id)
-                    ? "bg-violet-50 border border-violet-200"
-                    : "hover:bg-slate-50 border border-transparent"
-                )}
-              >
-                <Checkbox
-                  checked={selectedAlbums.includes(album.id)}
-                  onCheckedChange={() => handleToggleAlbum(album.id)}
-                  className={cn(
-                    selectedAlbums.includes(album.id)
-                      ? "bg-violet-600 border-violet-600"
-                      : ""
-                  )}
-                />
-                <FolderOpen className="w-4 h-4 text-slate-400" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-800 truncate">
-                    {album.name}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    {album.imageCount || 0} 张图片
-                  </p>
-                </div>
-              </label>
-            ))}
+          {/* 相册列表 - 树形结构 */}
+          <div className="max-h-64 overflow-y-auto space-y-1 border rounded-lg p-2">
+            {renderAlbumTree(albumTree)}
           </div>
 
           {albums.length === 0 && (

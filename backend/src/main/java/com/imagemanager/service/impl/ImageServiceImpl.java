@@ -2172,10 +2172,14 @@ public class ImageServiceImpl implements ImageService {
         List<String> allAlbumIds = new ArrayList<>();
         collectAllAlbumIds(albumId, allAlbumIds);
         
-        // 创建ZIP文件
+        // 创建ZIP文件，使用UTF-8编码支持中文文件名
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-            int totalImages = 0;
+        ZipOutputStream zos = new ZipOutputStream(baos, java.nio.charset.StandardCharsets.UTF_8);
+        zos.setMethod(ZipOutputStream.DEFLATED);
+        zos.setLevel(java.util.zip.Deflater.BEST_SPEED);
+        
+        int totalImages = 0;
+        int errorCount = 0;
             
             for (String currentAlbumId : allAlbumIds) {
                 Album currentAlbum = albumService.getAlbumById(currentAlbumId);
@@ -2204,16 +2208,24 @@ public class ImageServiceImpl implements ImageService {
                     String productFolderName = currentAlbumName + "/" + sanitizeFileName(productName);
                     
                     // 导出该商品的图片
-                    int exported = exportProductImages(zos, productImageList, productFolderName);
-                    totalImages += exported;
+                    ExportResult result = exportProductImages(zos, productImageList, productFolderName);
+                    totalImages += result.successCount;
+                    errorCount += result.errorCount;
                 }
             }
+            
+            // 确保关闭 ZipOutputStream
+            zos.finish();
+            zos.close();
             
             if (totalImages == 0) {
                 throw new RuntimeException("相册及其子相册中没有图片");
             }
             
-            log.info("导出完成，共导出 {} 张图片", totalImages);
+            log.info("导出完成，共导出 {} 张图片，失败 {} 张", totalImages, errorCount);
+        } catch (Exception e) {
+            log.error("导出ZIP失败", e);
+            throw e;
         }
         
         return baos.toByteArray();
@@ -2223,9 +2235,14 @@ public class ImageServiceImpl implements ImageService {
     public byte[] exportMultipleAlbums(List<String> albumIds) throws Exception {
         log.info("批量导出多个相册，数量：{}", albumIds.size());
         
+        // 创建ZIP文件，使用UTF-8编码支持中文文件名
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        try (ZipOutputStream zos = new ZipOutputStream(baos)) {
-            int totalImages = 0;
+        ZipOutputStream zos = new ZipOutputStream(baos, java.nio.charset.StandardCharsets.UTF_8);
+        zos.setMethod(ZipOutputStream.DEFLATED);
+        zos.setLevel(java.util.zip.Deflater.BEST_SPEED);
+        
+        int totalImages = 0;
+        int errorCount = 0;
             
             for (String albumId : albumIds) {
                 // 获取相册信息
@@ -2263,16 +2280,37 @@ public class ImageServiceImpl implements ImageService {
                         String productFolderName = albumName + "/" + subAlbumName + "/" + sanitizeFileName(productName);
                         
                         // 导出该商品的图片
-                        int exported = exportProductImages(zos, productImageList, productFolderName);
-                        totalImages += exported;
+                        ExportResult result = exportProductImages(zos, productImageList, productFolderName);
+                        totalImages += result.successCount;
+                        errorCount += result.errorCount;
                     }
                 }
             }
             
-            log.info("批量导出完成，共导出 {} 张图片", totalImages);
+            // 确保关闭 ZipOutputStream
+            zos.finish();
+            zos.close();
+            
+            log.info("批量导出完成，共导出 {} 张图片，失败 {} 张", totalImages, errorCount);
+        } catch (Exception e) {
+            log.error("批量导出ZIP失败", e);
+            throw e;
         }
         
         return baos.toByteArray();
+    }
+    
+    /**
+     * 导出结果
+     */
+    private static class ExportResult {
+        int successCount;
+        int errorCount;
+        
+        ExportResult(int successCount, int errorCount) {
+            this.successCount = successCount;
+            this.errorCount = errorCount;
+        }
     }
     
     /**
@@ -2297,9 +2335,9 @@ public class ImageServiceImpl implements ImageService {
     
     /**
      * 导出单个商品的图片到ZIP
-     * @return 导出的图片数量
+     * @return 导出结果（成功数和失败数）
      */
-    private int exportProductImages(ZipOutputStream zos, List<Image> productImageList, String productFolderName) throws Exception {
+    private ExportResult exportProductImages(ZipOutputStream zos, List<Image> productImageList, String productFolderName) throws Exception {
         // 按主图和详情图分组
         List<Image> mainImages = productImageList.stream()
                 .filter(img -> Boolean.TRUE.equals(img.getIsMainImage()))
@@ -2319,32 +2357,40 @@ public class ImageServiceImpl implements ImageService {
             }
         }
         
-        int count = 0;
+        int successCount = 0;
+        int errorCount = 0;
         
         // 添加主图
         for (Image img : mainImages) {
-            addImageToZip(zos, img, productFolderName, "主图", null);
-            count++;
+            if (addImageToZip(zos, img, productFolderName, "主图", null)) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
         }
         
         // 添加详情图
         int detailIndex = 1;
         for (Image img : detailImages) {
-            addImageToZip(zos, img, productFolderName, "详情图", detailIndex++);
-            count++;
+            if (addImageToZip(zos, img, productFolderName, "详情图", detailIndex++)) {
+                successCount++;
+            } else {
+                errorCount++;
+            }
         }
         
-        return count;
+        return new ExportResult(successCount, errorCount);
     }
     
     /**
      * 添加图片到ZIP文件
+     * @return 是否成功添加
      */
-    private void addImageToZip(ZipOutputStream zos, Image image, String folderName, String prefix, Integer detailIndex) {
+    private boolean addImageToZip(ZipOutputStream zos, Image image, String folderName, String prefix, Integer detailIndex) {
         try {
             if (image.getFileKey() == null || image.getFileKey().isEmpty()) {
                 log.warn("图片{}没有fileKey，跳过", image.getId());
-                return;
+                return false;
             }
             
             // 获取文件扩展名
@@ -2373,7 +2419,19 @@ public class ImageServiceImpl implements ImageService {
             }
             
             // 读取图片数据
-            byte[] imageData = storageService.getFileInputStream(image.getFileKey()).readAllBytes();
+            java.io.InputStream inputStream = storageService.getFileInputStream(image.getFileKey());
+            if (inputStream == null) {
+                log.warn("无法读取图片数据：{}", image.getFileKey());
+                return false;
+            }
+            
+            byte[] imageData = inputStream.readAllBytes();
+            inputStream.close();
+            
+            if (imageData == null || imageData.length == 0) {
+                log.warn("图片数据为空：{}", image.getFileKey());
+                return false;
+            }
             
             // 添加到ZIP
             ZipEntry entry = new ZipEntry(fileName);
@@ -2382,8 +2440,10 @@ public class ImageServiceImpl implements ImageService {
             zos.closeEntry();
             
             log.debug("添加图片到ZIP：{}", fileName);
+            return true;
         } catch (Exception e) {
             log.error("添加图片到ZIP失败：{}", image.getId(), e);
+            return false;
         }
     }
     

@@ -2180,6 +2180,7 @@ public class ImageServiceImpl implements ImageService {
         
         int totalImages = 0;
         int errorCount = 0;
+        boolean zosClosed = false;
         
         try {
             for (String currentAlbumId : allAlbumIds) {
@@ -2218,6 +2219,7 @@ public class ImageServiceImpl implements ImageService {
             // 确保关闭 ZipOutputStream
             zos.finish();
             zos.close();
+            zosClosed = true;
             
             if (totalImages == 0) {
                 throw new RuntimeException("相册及其子相册中没有图片");
@@ -2227,6 +2229,15 @@ public class ImageServiceImpl implements ImageService {
         } catch (Exception e) {
             log.error("导出ZIP失败", e);
             throw e;
+        } finally {
+            if (zos != null && !zosClosed) {
+                try {
+                    zos.finish();
+                    zos.close();
+                } catch (Exception e) {
+                    log.error("关闭ZIP流出错", e);
+                }
+            }
         }
         
         return baos.toByteArray();
@@ -2244,6 +2255,7 @@ public class ImageServiceImpl implements ImageService {
         
         int totalImages = 0;
         int errorCount = 0;
+        boolean zosClosed = false;
         
         try {
             for (String albumId : albumIds) {
@@ -2292,11 +2304,21 @@ public class ImageServiceImpl implements ImageService {
             // 确保关闭 ZipOutputStream
             zos.finish();
             zos.close();
+            zosClosed = true;
             
             log.info("批量导出完成，共导出 {} 张图片，失败 {} 张", totalImages, errorCount);
         } catch (Exception e) {
             log.error("批量导出ZIP失败", e);
             throw e;
+        } finally {
+            if (zos != null && !zosClosed) {
+                try {
+                    zos.finish();
+                    zos.close();
+                } catch (Exception e) {
+                    log.error("关闭ZIP流出错", e);
+                }
+            }
         }
         
         return baos.toByteArray();
@@ -2386,12 +2408,41 @@ public class ImageServiceImpl implements ImageService {
     
     /**
      * 添加图片到ZIP文件
+     * 支持从本地存储(fileKey)或URL下载图片
      * @return 是否成功添加
      */
     private boolean addImageToZip(ZipOutputStream zos, Image image, String folderName, String prefix, Integer detailIndex) {
         try {
-            if (image.getFileKey() == null || image.getFileKey().isEmpty()) {
-                log.warn("图片{}没有fileKey，跳过", image.getId());
+            byte[] imageData = null;
+            
+            // 方式1：从本地存储读取（fileKey）
+            if (image.getFileKey() != null && !image.getFileKey().isEmpty()) {
+                try {
+                    java.io.InputStream inputStream = storageService.getFileInputStream(image.getFileKey());
+                    if (inputStream != null) {
+                        imageData = inputStream.readAllBytes();
+                        inputStream.close();
+                        log.debug("从本地存储读取图片：{}", image.getFileKey());
+                    }
+                } catch (Exception e) {
+                    log.warn("从本地存储读取失败，尝试从URL下载：{}", image.getFileKey());
+                }
+            }
+            
+            // 方式2：从URL下载（如果本地存储失败或fileKey为空）
+            if ((imageData == null || imageData.length == 0) && image.getUrl() != null && !image.getUrl().isEmpty()) {
+                try {
+                    imageData = downloadImageFromUrl(image.getUrl());
+                    log.info("从URL下载图片成功：{}", image.getUrl());
+                } catch (Exception e) {
+                    log.error("从URL下载图片失败：{} - {}", image.getUrl(), e.getMessage());
+                }
+            }
+            
+            // 检查是否成功获取图片数据
+            if (imageData == null || imageData.length == 0) {
+                log.warn("无法获取图片数据，跳过：{} (fileKey={}, url={})", 
+                    image.getId(), image.getFileKey(), image.getUrl());
                 return false;
             }
             
@@ -2420,32 +2471,40 @@ public class ImageServiceImpl implements ImageService {
                 fileName = String.format("%s/主图_%s%s", folderName, baseName, extension);
             }
             
-            // 读取图片数据
-            java.io.InputStream inputStream = storageService.getFileInputStream(image.getFileKey());
-            if (inputStream == null) {
-                log.warn("无法读取图片数据：{}", image.getFileKey());
-                return false;
-            }
-            
-            byte[] imageData = inputStream.readAllBytes();
-            inputStream.close();
-            
-            if (imageData == null || imageData.length == 0) {
-                log.warn("图片数据为空：{}", image.getFileKey());
-                return false;
-            }
-            
             // 添加到ZIP
             ZipEntry entry = new ZipEntry(fileName);
             zos.putNextEntry(entry);
             zos.write(imageData);
             zos.closeEntry();
             
-            log.debug("添加图片到ZIP：{}", fileName);
+            log.info("添加图片到ZIP：{} ({} bytes)", fileName, imageData.length);
             return true;
         } catch (Exception e) {
             log.error("添加图片到ZIP失败：{}", image.getId(), e);
             return false;
+        }
+    }
+    
+    /**
+     * 从URL下载图片数据
+     */
+    private byte[] downloadImageFromUrl(String imageUrl) throws Exception {
+        java.net.URL url = new java.net.URL(imageUrl);
+        java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+        connection.setRequestMethod("GET");
+        connection.setConnectTimeout(30000);
+        connection.setReadTimeout(30000);
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0");
+        
+        int responseCode = connection.getResponseCode();
+        if (responseCode != 200) {
+            throw new RuntimeException("HTTP " + responseCode);
+        }
+        
+        try (java.io.InputStream inputStream = connection.getInputStream()) {
+            return inputStream.readAllBytes();
+        } finally {
+            connection.disconnect();
         }
     }
     

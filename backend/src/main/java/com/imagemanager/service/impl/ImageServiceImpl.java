@@ -2161,7 +2161,7 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public byte[] exportAlbumImages(String albumId) throws Exception {
+    public void exportAlbumImages(String albumId, java.io.OutputStream outputStream) throws Exception {
         log.info("导出相册图片：{}", albumId);
         
         // 获取相册信息
@@ -2173,8 +2173,7 @@ public class ImageServiceImpl implements ImageService {
         collectAllAlbumIds(albumId, allAlbumIds);
         
         // 创建ZIP文件，使用UTF-8编码支持中文文件名
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ZipOutputStream zos = new ZipOutputStream(baos, java.nio.charset.StandardCharsets.UTF_8);
+        ZipOutputStream zos = new ZipOutputStream(outputStream, java.nio.charset.StandardCharsets.UTF_8);
         zos.setMethod(ZipOutputStream.DEFLATED);
         zos.setLevel(java.util.zip.Deflater.BEST_SPEED);
         
@@ -2239,17 +2238,14 @@ public class ImageServiceImpl implements ImageService {
                 }
             }
         }
-        
-        return baos.toByteArray();
     }
     
     @Override
-    public byte[] exportMultipleAlbums(List<String> albumIds) throws Exception {
+    public void exportMultipleAlbums(List<String> albumIds, java.io.OutputStream outputStream) throws Exception {
         log.info("批量导出多个相册，数量：{}", albumIds.size());
         
         // 创建ZIP文件，使用UTF-8编码支持中文文件名
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ZipOutputStream zos = new ZipOutputStream(baos, java.nio.charset.StandardCharsets.UTF_8);
+        ZipOutputStream zos = new ZipOutputStream(outputStream, java.nio.charset.StandardCharsets.UTF_8);
         zos.setMethod(ZipOutputStream.DEFLATED);
         zos.setLevel(java.util.zip.Deflater.BEST_SPEED);
         
@@ -2320,8 +2316,6 @@ public class ImageServiceImpl implements ImageService {
                 }
             }
         }
-        
-        return baos.toByteArray();
     }
     
     /**

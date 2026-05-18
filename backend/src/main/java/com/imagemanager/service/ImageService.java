@@ -180,14 +180,14 @@ public interface ImageService {
     /**
      * 导出单个相册的所有图片
      * @param albumId 相册ID
-     * @return ZIP文件的字节数组
+     * @param outputStream 输出流，直接写入ZIP数据
      */
-    byte[] exportAlbumImages(String albumId) throws Exception;
+    void exportAlbumImages(String albumId, java.io.OutputStream outputStream) throws Exception;
     
     /**
      * 导出多个相册的图片
      * @param albumIds 相册ID列表
-     * @return ZIP文件的字节数组
+     * @param outputStream 输出流，直接写入ZIP数据
      */
-    byte[] exportMultipleAlbums(List<String> albumIds) throws Exception;
+    void exportMultipleAlbums(List<String> albumIds, java.io.OutputStream outputStream) throws Exception;    
 }

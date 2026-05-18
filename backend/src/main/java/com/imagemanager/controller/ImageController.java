@@ -654,26 +654,26 @@ public class ImageController {
      */
     @GetMapping("/export/{albumId}")
     @Operation(summary = "批量导出相册图片", description = "导出指定相册的所有图片为ZIP文件，按商品分组")
-    public org.springframework.http.ResponseEntity<byte[]> exportAlbumImages(
+    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> exportAlbumImages(
             @Parameter(description = "相册ID") @PathVariable String albumId) {
         log.info("批量导出相册图片：{}", albumId);
         
-        try {
-            byte[] zipData = imageService.exportAlbumImages(albumId);
-            
-            // 获取相册名称作为文件名
-            String fileName = "album_" + albumId + "_export.zip";
-            
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", new String(fileName.getBytes("UTF-8"), "ISO-8859-1"));
-            headers.setContentLength(zipData.length);
-            
-            return new org.springframework.http.ResponseEntity<>(zipData, headers, org.springframework.http.HttpStatus.OK);
-        } catch (Exception e) {
-            log.error("导出失败", e);
-            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        String fileName = "album_" + albumId + "_export.zip";
+        
+        org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody stream = outputStream -> {
+            try {
+                imageService.exportAlbumImages(albumId, outputStream);
+            } catch (Exception e) {
+                log.error("导出失败", e);
+                throw new RuntimeException("导出失败: " + e.getMessage(), e);
+            }
+        };
+        
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1));
+        
+        return new org.springframework.http.ResponseEntity<>(stream, headers, org.springframework.http.HttpStatus.OK);
     }
     
     /**
@@ -711,24 +711,25 @@ public class ImageController {
      */
     @PostMapping("/export/batch")
     @Operation(summary = "批量导出多个相册", description = "导出多个相册的图片为ZIP文件")
-    public org.springframework.http.ResponseEntity<byte[]> exportMultipleAlbums(
+    public org.springframework.http.ResponseEntity<org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody> exportMultipleAlbums(
             @RequestBody java.util.List<String> albumIds) {
         log.info("批量导出多个相册，数量：{}", albumIds.size());
         
-        try {
-            byte[] zipData = imageService.exportMultipleAlbums(albumIds);
-            
-            String fileName = "albums_export.zip";
-            
-            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
-            headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", new String(fileName.getBytes("UTF-8"), "ISO-8859-1"));
-            headers.setContentLength(zipData.length);
-            
-            return new org.springframework.http.ResponseEntity<>(zipData, headers, org.springframework.http.HttpStatus.OK);
-        } catch (Exception e) {
-            log.error("批量导出失败", e);
-            return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        String fileName = "albums_export.zip";
+        
+        org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody stream = outputStream -> {
+            try {
+                imageService.exportMultipleAlbums(albumIds, outputStream);
+            } catch (Exception e) {
+                log.error("批量导出失败", e);
+                throw new RuntimeException("批量导出失败: " + e.getMessage(), e);
+            }
+        };
+        
+        org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+        headers.setContentType(org.springframework.http.MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", new String(fileName.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.nio.charset.StandardCharsets.ISO_8859_1));
+        
+        return new org.springframework.http.ResponseEntity<>(stream, headers, org.springframework.http.HttpStatus.OK);
     }
 }

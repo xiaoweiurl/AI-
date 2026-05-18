@@ -2180,7 +2180,8 @@ public class ImageServiceImpl implements ImageService {
         
         int totalImages = 0;
         int errorCount = 0;
-            
+        
+        try {
             for (String currentAlbumId : allAlbumIds) {
                 Album currentAlbum = albumService.getAlbumById(currentAlbumId);
                 String currentAlbumName = currentAlbum != null ? sanitizeFileName(currentAlbum.getName()) : "unknown";
@@ -2243,7 +2244,8 @@ public class ImageServiceImpl implements ImageService {
         
         int totalImages = 0;
         int errorCount = 0;
-            
+        
+        try {
             for (String albumId : albumIds) {
                 // 获取相册信息
                 Album album = albumService.getAlbumById(albumId);

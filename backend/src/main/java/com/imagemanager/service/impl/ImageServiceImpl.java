@@ -2197,8 +2197,11 @@ public class ImageServiceImpl implements ImageService {
                     String productId = entry.getKey();
                     List<Image> productImageList = entry.getValue();
                     
-                    // 文件夹结构：父相册/子相册/商品ID
-                    String productFolderName = currentAlbumName + "/" + sanitizeFileName(productId);
+                    // 获取商品名称（使用主图的title）
+                    String productName = getProductTitle(productImageList, productId);
+                    
+                    // 文件夹结构：父相册/子相册/商品名称
+                    String productFolderName = currentAlbumName + "/" + sanitizeFileName(productName);
                     
                     // 导出该商品的图片
                     int exported = exportProductImages(zos, productImageList, productFolderName);
@@ -2253,8 +2256,11 @@ public class ImageServiceImpl implements ImageService {
                         String productId = entry.getKey();
                         List<Image> productImageList = entry.getValue();
                         
-                        // 文件夹结构：父相册/子相册/商品ID
-                        String productFolderName = albumName + "/" + subAlbumName + "/" + sanitizeFileName(productId);
+                        // 获取商品名称（使用主图的title）
+                        String productName = getProductTitle(productImageList, productId);
+                        
+                        // 文件夹结构：父相册/子相册/商品名称
+                        String productFolderName = albumName + "/" + subAlbumName + "/" + sanitizeFileName(productName);
                         
                         // 导出该商品的图片
                         int exported = exportProductImages(zos, productImageList, productFolderName);
@@ -2267,6 +2273,26 @@ public class ImageServiceImpl implements ImageService {
         }
         
         return baos.toByteArray();
+    }
+    
+    /**
+     * 获取商品名称（优先使用主图的title）
+     */
+    private String getProductTitle(List<Image> productImageList, String productId) {
+        // 优先使用主图的title
+        for (Image img : productImageList) {
+            if (Boolean.TRUE.equals(img.getIsMainImage()) && img.getTitle() != null && !img.getTitle().isEmpty()) {
+                return img.getTitle();
+            }
+        }
+        // 如果没有主图title，使用第一张有title的图片
+        for (Image img : productImageList) {
+            if (img.getTitle() != null && !img.getTitle().isEmpty()) {
+                return img.getTitle();
+            }
+        }
+        // 都没有，使用productId
+        return productId;
     }
     
     /**

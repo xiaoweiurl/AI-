@@ -72,11 +72,18 @@ export async function POST(request: NextRequest) {
     const data = await response.json();
     
     // 后端直接返回 ShareLinkDTO，包装成前端期望的格式
+    // 注意：忽略后端返回的 shareUrl，使用前端域名生成正确的链接
     if (response.ok && data.shareCode) {
+      // 使用环境变量或前端域名生成分享链接
+      const frontendDomain = process.env.COZE_PROJECT_DOMAIN_DEFAULT || '';
+      const shareUrl = frontendDomain 
+        ? `https://${frontendDomain}/share/${data.shareCode}`
+        : `/share/${data.shareCode}`;
+      
       return NextResponse.json({
         success: true,
         shareCode: data.shareCode,
-        shareUrl: data.shareUrl || `${process.env.COZE_PROJECT_DOMAIN_DEFAULT}/share/${data.shareCode}`,
+        shareUrl,
         shareLink: data,
         message: '分享链接创建成功'
       });

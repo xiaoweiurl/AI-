@@ -108,11 +108,11 @@ export default function ShareDialog({
 
       const data = await response.json();
       
-      // 兼容两种返回格式：
-      // 1. 后端直接返回 ShareLinkDTO: { shareCode, shareUrl, ... }
-      // 2. 降级模式返回: { shareCode, shareLink: {...} }
+      // 获取分享码
       const shareCode = data.shareCode || (data.shareLink?.shareCode);
-      const shareUrl = data.shareUrl || (data.shareLink?.shareUrl) || `${window.location.origin}/share/${shareCode}`;
+      
+      // 始终使用前端域名生成分享链接，忽略后端返回的 shareUrl
+      const shareUrl = `${window.location.origin}/share/${shareCode}`;
       
       if (shareCode) {
         // 自动复制到剪贴板

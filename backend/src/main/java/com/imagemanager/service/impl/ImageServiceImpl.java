@@ -325,7 +325,7 @@ public class ImageServiceImpl implements ImageService {
             String fileKey = null;
             
             // 使用存储服务上传文件
-            if (storageService != null) {
+            if (fileStorageService != null) {
                 imageUrl = fileStorageService.uploadFile(file, "images");
                 fileKey = fileStorageService.getStorageKey(imageUrl);
             } else {
@@ -1123,7 +1123,7 @@ public class ImageServiceImpl implements ImageService {
             String fileKey = null;
             
             // 使用存储服务上传文件
-            if (storageService != null) {
+            if (fileStorageService != null) {
                 imageUrl = fileStorageService.uploadFile(file, "images");
                 fileKey = fileStorageService.getStorageKey(imageUrl);
             } else {
@@ -1921,7 +1921,7 @@ public class ImageServiceImpl implements ImageService {
             String fileKey = null;
             
             // 使用存储服务上传文件
-            if (storageService != null) {
+            if (fileStorageService != null) {
                 imageUrl = fileStorageService.uploadFile(file, "images");
                 fileKey = fileStorageService.getStorageKey(imageUrl);
             } else {
@@ -2493,7 +2493,7 @@ public class ImageServiceImpl implements ImageService {
     private void deleteImageFile(Image image) {
         if (image.getFileKey() != null && !image.getFileKey().isEmpty()) {
             try {
-                if (storageService != null) {
+                if (fileStorageService != null) {
                     fileStorageService.deleteFile(image.getFileKey());
                     log.info("从存储删除图片文件: {}", image.getFileKey());
                 }

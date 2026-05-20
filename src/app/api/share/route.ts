@@ -1,14 +1,66 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { backendFetch, isBackendAvailable } from '@/lib/backend-proxy';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080';
+// Mock 分享链接数据存储（降级模式使用）
+const mockShareLinks: Map<string, unknown[]> = new Map();
+
+// 生成随机分享码
+function generateShareCode(): string {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 // 创建分享链接
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const { resourceType, resourceId, resourceName, password, expireDays } = body;
+    
+    // 检查后端是否可用
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      // 降级模式：使用 mock 数据
+      const shareCode = generateShareCode();
+      const now = new Date();
+      const expiresAt = expireDays 
+        ? new Date(now.getTime() + expireDays * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+      
+      const shareLink = {
+        id: `share-${Date.now()}`,
+        shareCode,
+        resourceType,
+        resourceId,
+        resourceName: resourceName || '未命名资源',
+        password: password || null,
+        expiresAt,
+        accessCount: 0,
+        createdAt: now.toISOString(),
+      };
+      
+      // 存储到 mock 数据中
+      const key = `${resourceType}:${resourceId}`;
+      const links = mockShareLinks.get(key) || [];
+      links.push(shareLink);
+      mockShareLinks.set(key, links);
+      
+      return NextResponse.json({ 
+        success: true, 
+        shareCode,
+        shareLink,
+        message: '分享链接创建成功（降级模式）'
+      });
+    }
+    
+    // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
-
-    const response = await fetch(`${BACKEND_URL}/api/share`, {
+    
+    const response = await backendFetch('/share', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -33,6 +85,30 @@ export async function GET(request: NextRequest) {
     const resourceId = searchParams.get('resourceId') || '';
     const page = searchParams.get('page') || '1';
     const pageSize = searchParams.get('pageSize') || '20';
+    
+    // 检查后端是否可用
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      // 降级模式：从 mock 数据返回
+      const key = `${resourceType}:${resourceId}`;
+      let links = mockShareLinks.get(key) || [];
+      
+      // 如果没有找到特定资源的链接，返回空数组
+      if (resourceId && links.length === 0) {
+        // 生成一些模拟的分享链接用于展示
+        links = [];
+      }
+      
+      return NextResponse.json({ 
+        success: true, 
+        shareLinks: links,
+        total: links.length,
+        message: '降级模式'
+      });
+    }
+    
+    // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
 
     const params = new URLSearchParams();
@@ -40,10 +116,7 @@ export async function GET(request: NextRequest) {
     params.append('page', page);
     params.append('pageSize', pageSize);
 
-    // 如果指定了 resourceId，使用资源查询接口
-    let url = `${BACKEND_URL}/api/share/my?${params.toString()}`;
-    
-    const response = await fetch(url, {
+    const response = await backendFetch(`/share/my?${params.toString()}`, {
       headers: {
         'X-Session-Id': sessionId || '',
       },
@@ -52,8 +125,8 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     
     // 如果指定了 resourceId，过滤结果
-    if (resourceId && data.shareLinks) {
-      data.shareLinks = data.shareLinks.filter(
+    if (resourceId && data.data) {
+      data.data = data.data.filter(
         (link: { resourceId: string }) => link.resourceId === resourceId
       );
     }
@@ -70,9 +143,27 @@ export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const shareId = searchParams.get('shareId') || '';
+    
+    // 检查后端是否可用
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      // 降级模式：从 mock 数据中删除
+      for (const [key, links] of mockShareLinks.entries()) {
+        const index = links.findIndex((link: unknown) => (link as { id: string }).id === shareId);
+        if (index !== -1) {
+          links.splice(index, 1);
+          mockShareLinks.set(key, links);
+          break;
+        }
+      }
+      return NextResponse.json({ success: true, message: '删除成功（降级模式）' });
+    }
+    
+    // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await fetch(`${BACKEND_URL}/api/share/${shareId}`, {
+    const response = await backendFetch(`/share/${shareId}`, {
       method: 'DELETE',
       headers: {
         'X-Session-Id': sessionId || '',

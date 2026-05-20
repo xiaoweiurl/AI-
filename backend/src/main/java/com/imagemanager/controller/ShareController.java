@@ -2,306 +2,153 @@ package com.imagemanager.controller;
 
 import com.imagemanager.dto.*;
 import com.imagemanager.service.ShareService;
-import com.imagemanager.service.AuditService;
-import com.imagemanager.entity.User;
-import com.imagemanager.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-/**
- * 分享控制器
- */
-@Slf4j
 @RestController
 @RequestMapping("/api/share")
 @RequiredArgsConstructor
 public class ShareController {
 
     private final ShareService shareService;
-    private final AuditService auditService;
-    private final UserRepository userRepository;
 
     /**
      * 创建分享链接
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createShare(
-            @RequestBody CreateShareRequest request,
-            HttpSession session,
+    public ResponseEntity<ShareLinkDTO> createShare(
+            @Valid @RequestBody CreateShareRequest request,
             HttpServletRequest httpRequest) {
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            String userId = (String) session.getAttribute("userId");
-            if (userId == null) {
-                result.put("error", "未登录");
-                return ResponseEntity.status(401).body(result);
-            }
-
-            String baseUrl = getBaseUrl(httpRequest);
-            ShareLinkDTO shareLink = shareService.createShare(request, userId, baseUrl);
-            
-            result.put("success", true);
-            result.put("data", shareLink);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Create share failed", e);
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+        String userId = (String) httpRequest.getAttribute("userId");
+        ShareLinkDTO share = shareService.createShare(request, userId);
+        return ResponseEntity.ok(share);
     }
 
     /**
-     * 访问分享链接 (POST方式)
+     * 获取我的分享列表
      */
-    @PostMapping("/access")
-    public ResponseEntity<Map<String, Object>> accessShare(
-            @RequestBody AccessShareRequest request,
+    @GetMapping("/my")
+    public ResponseEntity<Page<ShareLinkDTO>> getMyShares(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int pageSize,
+            @RequestParam(required = false) String resourceType,
+            @RequestParam(required = false) String resourceId,
             HttpServletRequest httpRequest) {
-        
-        try {
-            String ip = getClientIp(httpRequest);
-            String userAgent = httpRequest.getHeader("User-Agent");
-            String referer = httpRequest.getHeader("Referer");
-            
-            Map<String, Object> result = shareService.accessShare(
-                    request.getShareCode(), 
-                    request.getPassword(), 
-                    ip, userAgent, referer);
-            
-            if (result.containsKey("error")) {
-                return ResponseEntity.badRequest().body(result);
-            }
-            
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Access share failed", e);
-            Map<String, Object> result = new HashMap<>();
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+        String userId = (String) httpRequest.getAttribute("userId");
+        Page<ShareLinkDTO> shares = shareService.getSharesByUser(userId, resourceType, resourceId, page, pageSize);
+        return ResponseEntity.ok(shares);
     }
 
     /**
-     * 访问分享链接 (GET方式，用于公开访问页面)
+     * 获取分享详情（通过ID）
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<ShareLinkDTO> getShareById(
+            @PathVariable String id,
+            HttpServletRequest httpRequest) {
+        String userId = (String) httpRequest.getAttribute("userId");
+        ShareLinkDTO share = shareService.getShareById(id, userId);
+        return ResponseEntity.ok(share);
+    }
+
+    /**
+     * 通过 shareCode 删除分享
+     */
+    @DeleteMapping("/code/{shareCode}")
+    public ResponseEntity<Void> deleteShareByCode(
+            @PathVariable String shareCode,
+            HttpServletRequest httpRequest) {
+        String userId = (String) httpRequest.getAttribute("userId");
+        shareService.deleteShareByCode(shareCode, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 通过 ID 删除分享
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteShare(
+            @PathVariable String id,
+            HttpServletRequest httpRequest) {
+        String userId = (String) httpRequest.getAttribute("userId");
+        shareService.deleteShare(id, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * 公开访问分享链接
      */
     @GetMapping("/access/{shareCode}")
-    public ResponseEntity<Map<String, Object>> accessShareByCode(
+    public ResponseEntity<Map<String, Object>> accessShare(
             @PathVariable String shareCode,
             @RequestParam(required = false) String password,
             HttpServletRequest httpRequest) {
-        
-        try {
-            String ip = getClientIp(httpRequest);
-            String userAgent = httpRequest.getHeader("User-Agent");
-            String referer = httpRequest.getHeader("Referer");
-            
-            Map<String, Object> result = shareService.accessShare(
-                    shareCode, 
-                    password != null ? password : "", 
-                    ip, userAgent, referer);
-            
-            if (result.containsKey("error")) {
-                if (result.get("error").equals("需要密码")) {
-                    result.put("needPassword", true);
-                }
-                return ResponseEntity.badRequest().body(result);
-            }
-            
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Access share failed", e);
-            Map<String, Object> result = new HashMap<>();
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+        String visitorIp = getClientIp(httpRequest);
+        Map<String, Object> result = shareService.accessShare(shareCode, password, visitorIp);
+        return ResponseEntity.ok(result);
     }
 
     /**
-     * 获取分享链接详情
+     * 验证分享密码
      */
-    @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getShareDetail(
-            @PathVariable String id,
-            HttpSession session) {
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            String userId = (String) session.getAttribute("userId");
-            if (userId == null) {
-                result.put("error", "未登录");
-                return ResponseEntity.status(401).body(result);
-            }
-
-            ShareLinkDTO shareLink = shareService.getShareDetail(id, userId);
-            
-            result.put("success", true);
-            result.put("data", shareLink);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Get share detail failed", e);
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+    @PostMapping("/access")
+    public ResponseEntity<Map<String, Object>> verifySharePassword(
+            @RequestBody AccessShareRequest request,
+            HttpServletRequest httpRequest) {
+        String visitorIp = getClientIp(httpRequest);
+        Map<String, Object> result = shareService.accessShare(request.getShareCode(), request.getPassword(), visitorIp);
+        return ResponseEntity.ok(result);
     }
 
     /**
-     * 获取用户的分享链接列表
+     * 获取分享统计信息
      */
-    @GetMapping("/my")
-    public ResponseEntity<Map<String, Object>> getMyShares(
+    @GetMapping("/stats")
+    public ResponseEntity<ShareStatsRequest> getShareStats(
             @RequestParam(required = false) String resourceType,
-            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(required = false) String resourceId,
+            HttpServletRequest httpRequest) {
+        String userId = (String) httpRequest.getAttribute("userId");
+        ShareStatsRequest stats = shareService.getShareStats(userId, resourceType, resourceId);
+        return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * 获取分享访问记录
+     */
+    @GetMapping("/{id}/access-logs")
+    public ResponseEntity<Page<ShareAccessLogDTO>> getAccessLogs(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int pageSize,
-            HttpSession session) {
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            String userId = (String) session.getAttribute("userId");
-            if (userId == null) {
-                result.put("error", "未登录");
-                return ResponseEntity.status(401).body(result);
-            }
-
-            Page<ShareLinkDTO> shares = shareService.getUserShares(userId, resourceType, page, pageSize);
-            
-            result.put("success", true);
-            result.put("data", shares.getContent());
-            result.put("total", shares.getTotalElements());
-            result.put("page", page);
-            result.put("pageSize", pageSize);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Get my shares failed", e);
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
+            HttpServletRequest httpRequest) {
+        String userId = (String) httpRequest.getAttribute("userId");
+        Page<ShareAccessLogDTO> logs = shareService.getAccessLogs(id, userId, page, pageSize);
+        return ResponseEntity.ok(logs);
     }
 
     /**
-     * 删除分享链接
+     * 获取客户端IP
      */
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteShare(
-            @PathVariable String id,
-            HttpSession session) {
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            String userId = (String) session.getAttribute("userId");
-            if (userId == null) {
-                result.put("error", "未登录");
-                return ResponseEntity.status(401).body(result);
-            }
-
-            shareService.deleteShare(id, userId);
-            
-            result.put("success", true);
-            result.put("message", "分享链接已删除");
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Delete share failed", e);
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
-    }
-    
-    /**
-     * 通过分享码删除分享链接
-     */
-    @DeleteMapping("/code/{shareCode}")
-    public ResponseEntity<Map<String, Object>> deleteShareByCode(
-            @PathVariable String shareCode,
-            HttpSession session) {
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            String userId = (String) session.getAttribute("userId");
-            if (userId == null) {
-                result.put("error", "未登录");
-                return ResponseEntity.status(401).body(result);
-            }
-
-            shareService.deleteShareByCode(shareCode, userId);
-            
-            result.put("success", true);
-            result.put("message", "分享链接已删除");
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Delete share by code failed", e);
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
-    }
-
-    /**
-     * 获取分享统计
-     */
-    @GetMapping("/{id}/stats")
-    public ResponseEntity<Map<String, Object>> getShareStats(
-            @PathVariable String id,
-            @RequestParam(defaultValue = "week") String period,
-            HttpSession session) {
-        
-        Map<String, Object> result = new HashMap<>();
-        
-        try {
-            String userId = (String) session.getAttribute("userId");
-            if (userId == null) {
-                result.put("error", "未登录");
-                return ResponseEntity.status(401).body(result);
-            }
-
-            Map<String, Object> stats = shareService.getShareAccessStats(id, period);
-            
-            result.put("success", true);
-            result.put("data", stats);
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            log.error("Get share stats failed", e);
-            result.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(result);
-        }
-    }
-
-    private String getBaseUrl(HttpServletRequest request) {
-        String scheme = request.getScheme();
-        String serverName = request.getServerName();
-        int serverPort = request.getServerPort();
-        
-        StringBuilder url = new StringBuilder();
-        url.append(scheme).append("://").append(serverName);
-        
-        if ((scheme.equals("http") && serverPort != 80) || 
-            (scheme.equals("https") && serverPort != 443)) {
-            url.append(":").append(serverPort);
-        }
-        
-        return url.toString();
-    }
-
     private String getClientIp(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
         if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("X-Real-IP");
+            ip = request.getHeader("Proxy-Client-IP");
+        }
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = request.getHeader("WL-Proxy-Client-IP");
         }
         if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             ip = request.getRemoteAddr();
         }
-        // 多个代理时取第一个
+        // 多个代理时取第一个IP
         if (ip != null && ip.contains(",")) {
             ip = ip.split(",")[0].trim();
         }

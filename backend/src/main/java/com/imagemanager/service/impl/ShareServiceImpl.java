@@ -240,7 +240,7 @@ public class ShareServiceImpl implements ShareService {
                 if (album != null) {
                     Map<String, Object> content = new HashMap<>();
                     content.put("album", album);
-                    content.put("images", imageRepository.findByAlbumIdAndIsMainImageAndDeletedFalse(resourceId, true));
+                    content.put("images", imageRepository.findMainImagesByAlbumIdAndDeletedFalse(resourceId));
                     yield content;
                 }
                 yield null;

@@ -135,6 +135,12 @@ public interface ImageRepository extends JpaRepository<Image, String>, JpaSpecif
      */
     @Query("SELECT i FROM Image i WHERE i.deleted = false AND i.isMainImage = true AND i.albumId = :albumId")
     Page<Image> findByAlbumIdAndIsMainImageAndDeletedFalse(@Param("albumId") String albumId, Pageable pageable);
+    
+    /**
+     * 查询相册中的所有主图（不分页）
+     */
+    @Query("SELECT i FROM Image i WHERE i.deleted = false AND i.isMainImage = true AND i.albumId = :albumId")
+    List<Image> findMainImagesByAlbumIdAndDeletedFalse(@Param("albumId") String albumId);
 
     /**
      * 按用户查询未删除的图片

@@ -621,10 +621,28 @@ export default function Home() {
         // 全部图片 - 使用商品主图API
         params.append('includeDeleted', 'false');
         
-        // 添加日期筛选
+        // 添加日期筛选 - 转换为 startDate 和 endDate
         if (filterState.dateFilter && filterState.dateFilter !== 'all') {
-          params.append('dateFilter', filterState.dateFilter);
-          console.log('[Home] 添加日期筛选:', filterState.dateFilter);
+          const now = new Date();
+          let startDate: Date | null = null;
+          
+          switch (filterState.dateFilter) {
+            case 'today':
+              startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              break;
+            case 'week':
+              startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+              break;
+            case 'month':
+              startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+              break;
+          }
+          
+          if (startDate) {
+            params.append('startDate', startDate.toISOString().split('T')[0]);
+            params.append('endDate', now.toISOString().split('T')[0]);
+            console.log('[Home] 添加日期筛选:', startDate.toISOString().split('T')[0], '至', now.toISOString().split('T')[0]);
+          }
         }
         
         // 添加文件类型筛选
@@ -645,16 +663,17 @@ export default function Home() {
           console.log('[Home] 添加关键词筛选:', filterState.keyword.trim());
         }
         
+        // 添加标签筛选（多标签支持）
+        if (filterState.tagFilter && filterState.tagFilter.length > 0) {
+          filterState.tagFilter.forEach(tag => params.append('tags', tag));
+          console.log('[Home] 添加标签筛选:', filterState.tagFilter);
+        }
+        
         // 如果有相册筛选，使用 images API；否则使用 products/main-images API
         if (filterState.albumFilter !== 'all') {
           apiUrl = `/images?${params}`;
         } else {
           apiUrl = `/products/main-images?${params}`;
-        }
-        
-        // 添加标签筛选（多标签支持）
-        if (filterState.tagFilter && filterState.tagFilter.length > 0) {
-          filterState.tagFilter.forEach(tag => params.append('tags', tag));
         }
       }
 

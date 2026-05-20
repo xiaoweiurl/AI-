@@ -121,6 +121,7 @@ public class ImageServiceImpl implements ImageService {
         
         // 检查是否有高级搜索参数
         boolean hasAdvancedFilters = 
+            (request.getKeyword() != null && !request.getKeyword().isEmpty()) ||
             (request.getTags() != null && !request.getTags().isEmpty()) ||
             (request.getStartDate() != null && !request.getStartDate().isEmpty()) ||
             (request.getEndDate() != null && !request.getEndDate().isEmpty()) ||
@@ -235,6 +236,12 @@ public class ImageServiceImpl implements ImageService {
                     predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"), finalEndDate));
                 }
                 
+                // 标签筛选（支持多标签，包含任意一个即可）
+                if (finalTags != null && !finalTags.isEmpty()) {
+                    jakarta.persistence.criteria.Join<Object, Object> tagsJoin = root.join("tags");
+                    predicates.add(tagsJoin.in(finalTags));
+                }
+                
                 return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
             };
             
@@ -252,19 +259,23 @@ public class ImageServiceImpl implements ImageService {
                 imagePage = imageRepository.searchByKeyword(request.getKeyword(), pageable);
             }
         } else if (request.getAlbumId() != null) {
-            // 相册查询：直接查询该相册下的图片（不通过products表）
+            // 相册查询：支持层级查询（递归获取所有子相册）
             String albumId = request.getAlbumId();
             log.info("查询相册，albumId={}", albumId);
+            
+            // 递归获取所有子相册ID
+            List<String> allAlbumIds = collectAllAlbumIds(albumId);
+            log.info("层级查询：找到 {} 个相册（包含子相册）", allAlbumIds.size());
 
             // 如果 onlyMainImage 为 true，只查询主图
             if (request.getOnlyMainImage() != null && request.getOnlyMainImage()) {
-                log.info("只查询主图，albumId={}", albumId);
-                imagePage = imageRepository.findByAlbumIdAndIsMainImageAndDeleted(albumId, true, false, pageable);
+                log.info("只查询主图，albumIds={}", allAlbumIds);
+                imagePage = imageRepository.findByAlbumIdInAndIsMainImageAndDeleted(allAlbumIds, true, false, pageable);
                 log.info("查询到的主图数量：{}", imagePage.getContent().size());
             } else {
                 // 查询该相册的所有图片
-                log.info("查询所有图片（包括主图和详情图），albumId={}", albumId);
-                imagePage = imageRepository.findByAlbumIdAndDeleted(albumId, false, pageable);
+                log.info("查询所有图片（包括主图和详情图），albumIds={}", allAlbumIds);
+                imagePage = imageRepository.findByAlbumIdInAndDeleted(allAlbumIds, false, pageable);
                 log.info("查询到的图片数量：{}", imagePage.getContent().size());
             }
 

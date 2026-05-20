@@ -37,6 +37,11 @@ public interface ShareService {
     void deleteShare(String shareLinkId, String userId);
     
     /**
+     * 通过分享码删除分享链接
+     */
+    void deleteShareByCode(String shareCode, String userId);
+    
+    /**
      * 获取资源的分享统计
      */
     Map<String, Object> getResourceShareStats(String resourceId);

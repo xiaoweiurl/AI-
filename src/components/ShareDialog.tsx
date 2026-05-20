@@ -125,11 +125,11 @@ export default function ShareDialog({
     }
   };
 
-  const deleteShareLink = async (shareId: string) => {
+  const deleteShareLink = async (shareCode: string) => {
     if (!confirm('确定要删除这个分享链接吗？')) return;
 
     try {
-      const response = await fetch(`/api/share/${shareId}`, {
+      const response = await fetch(`/api/share/${shareCode}`, {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -219,7 +219,7 @@ export default function ShareDialog({
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => deleteShareLink(link.id)}
+                            onClick={() => deleteShareLink(link.shareCode)}
                           >
                             <Trash2 className="w-4 h-4 text-red-500" />
                           </Button>

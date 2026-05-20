@@ -62,7 +62,7 @@ export async function DELETE(
     const { shareCode } = await params;
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await fetch(`${BACKEND_URL}/api/share/${shareCode}`, {
+    const response = await fetch(`${BACKEND_URL}/api/share/code/${shareCode}`, {
       method: 'DELETE',
       headers: {
         'X-Session-Id': sessionId || '',

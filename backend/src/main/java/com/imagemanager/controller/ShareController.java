@@ -217,6 +217,35 @@ public class ShareController {
             return ResponseEntity.badRequest().body(result);
         }
     }
+    
+    /**
+     * 通过分享码删除分享链接
+     */
+    @DeleteMapping("/code/{shareCode}")
+    public ResponseEntity<Map<String, Object>> deleteShareByCode(
+            @PathVariable String shareCode,
+            HttpSession session) {
+        
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            String userId = (String) session.getAttribute("userId");
+            if (userId == null) {
+                result.put("error", "未登录");
+                return ResponseEntity.status(401).body(result);
+            }
+
+            shareService.deleteShareByCode(shareCode, userId);
+            
+            result.put("success", true);
+            result.put("message", "分享链接已删除");
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Delete share by code failed", e);
+            result.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(result);
+        }
+    }
 
     /**
      * 获取分享统计

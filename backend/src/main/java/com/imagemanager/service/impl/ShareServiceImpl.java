@@ -170,6 +170,20 @@ public class ShareServiceImpl implements ShareService {
     }
 
     @Override
+    @Transactional
+    public void deleteShareByCode(String shareCode, String userId) {
+        ShareLink shareLink = shareLinkRepository.findByShareCodeAndDeletedFalse(shareCode)
+                .orElseThrow(() -> new RuntimeException("分享链接不存在"));
+
+        if (!shareLink.getCreatedBy().equals(userId)) {
+            throw new RuntimeException("无权删除此分享链接");
+        }
+
+        shareLink.setDeleted(true);
+        shareLinkRepository.save(shareLink);
+    }
+
+    @Override
     public Map<String, Object> getResourceShareStats(String resourceId) {
         Map<String, Object> stats = new HashMap<>();
         

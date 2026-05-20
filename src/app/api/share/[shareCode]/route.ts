@@ -103,9 +103,25 @@ export async function POST(
     const backendAvailable = await isBackendAvailable();
     
     if (!backendAvailable) {
-      // 降级模式：模拟验证成功
+      // 降级模式：模拟验证成功并返回完整数据
+      const resourceName = '示例相册';
+      const images = generateMockImages(12, resourceName);
+      
       return NextResponse.json({
         success: true,
+        shareCode,
+        resourceType: 'album',
+        resourceId: 'mock-album-id',
+        resourceName,
+        hasPassword: true,
+        expiresAt: null,
+        isExpired: false,
+        images,
+        album: {
+          id: 'mock-album-id',
+          name: resourceName,
+          description: '这是一个示例相册',
+        },
         message: '验证成功（降级模式）',
       });
     }

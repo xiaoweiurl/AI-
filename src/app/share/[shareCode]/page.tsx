@@ -65,8 +65,24 @@ export default function SharePage() {
         const data = await response.json();
 
         if (data.success) {
-          // 密码验证成功，重新获取分享内容
-          await loadShareData();
+          // 密码验证成功，直接使用返回的数据
+          if (data.images || data.album) {
+            setShareData({
+              shareCode: data.shareCode,
+              resourceType: data.resourceType,
+              resourceId: data.resourceId,
+              resourceName: data.resourceName,
+              hasPassword: data.hasPassword,
+              expiresAt: data.expiresAt,
+              isExpired: data.isExpired,
+              images: data.images,
+              album: data.album,
+            });
+            setNeedPassword(false);
+          } else {
+            // 如果返回的数据中没有图片，重新获取
+            await loadShareData();
+          }
           return;
         } else {
           setError(data.error || '密码验证失败');

@@ -608,17 +608,8 @@ export default function Home() {
         // 收藏 - 使用主图片API加筛选
         params.append('favorite', 'true');
         apiUrl = `/images?${params}`;
-      } else if (activeMenuItem.startsWith('album-') || albums.some(a => a.id === activeMenuItem)) {
-        // 相册筛选 - 只显示主图
-        // 兼容两种格式：带 album- 前缀的 mock 数据，以及真实数据库的 UUID 格式
-        const albumId = activeMenuItem.startsWith('album-') 
-          ? activeMenuItem.replace('album-', '') 
-          : activeMenuItem;
-        params.append('albumId', albumId);
-        params.append('onlyMainImage', 'true');
-        apiUrl = `/images?${params}`;
       } else {
-        // 全部图片 - 使用商品主图API
+        // 全部图片 或 相册筛选
         params.append('includeDeleted', 'false');
         
         // 添加日期筛选 - 转换为 startDate 和 endDate
@@ -651,11 +642,24 @@ export default function Home() {
           console.log('[Home] 添加文件类型筛选:', filterState.typeFilter);
         }
         
-        // 添加相册筛选 - 使用 albumId 参数支持层级查询
-        if (filterState.albumFilter !== 'all') {
-          params.append('albumId', filterState.albumFilter);
+        // 添加相册筛选 - 支持从侧边栏点击或从筛选面板选择
+        let albumId: string | null = null;
+        
+        // 优先从筛选面板获取
+        if (filterState.albumFilter && filterState.albumFilter !== 'all') {
+          albumId = filterState.albumFilter;
+        }
+        // 其次从侧边栏获取
+        else if (activeMenuItem.startsWith('album-') || albums.some(a => a.id === activeMenuItem)) {
+          albumId = activeMenuItem.startsWith('album-') 
+            ? activeMenuItem.replace('album-', '') 
+            : activeMenuItem;
+        }
+        
+        if (albumId) {
+          params.append('albumId', albumId);
           params.append('onlyMainImage', 'true');
-          console.log('[Home] 添加相册筛选:', filterState.albumFilter);
+          console.log('[Home] 添加相册筛选:', albumId);
         }
         
         if (filterState.keyword && filterState.keyword.trim()) {
@@ -669,12 +673,8 @@ export default function Home() {
           console.log('[Home] 添加标签筛选:', filterState.tagFilter);
         }
         
-        // 如果有相册筛选，使用 images API；否则使用 products/main-images API
-        if (filterState.albumFilter !== 'all') {
-          apiUrl = `/images?${params}`;
-        } else {
-          apiUrl = `/products/main-images?${params}`;
-        }
+        // 如果有相册筛选，使用 images API；否则也使用 images API（统一筛选逻辑）
+        apiUrl = `/images?${params}`;
       }
 
       console.log('[Home] 请求URL:', apiUrl);

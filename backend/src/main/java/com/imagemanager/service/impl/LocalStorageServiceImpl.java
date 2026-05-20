@@ -1,7 +1,7 @@
 package com.imagemanager.service.impl;
 
 import com.imagemanager.config.StorageConfig;
-import com.imagemanager.service.StorageService;
+import com.imagemanager.service.FileStorageService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,7 @@ import java.util.UUID;
  */
 @Slf4j
 @Service
-public class LocalStorageServiceImpl implements StorageService {
+public class LocalStorageServiceImpl implements FileStorageService {
     
     @Autowired
     private StorageConfig storageConfig;

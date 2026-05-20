@@ -4,7 +4,7 @@ import com.imagemanager.dto.*;
 import com.imagemanager.entity.Notification;
 import com.imagemanager.entity.User;
 import com.imagemanager.service.AuthService;
-import com.imagemanager.service.StorageService;
+import com.imagemanager.service.FileStorageService;
 import com.imagemanager.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -39,7 +39,7 @@ public class UserController {
     private AuthService authService;
     
     @Autowired
-    private StorageService storageService;
+    private FileStorageService fileStorageService;
     
     /**
      * 获取当前用户信息
@@ -127,7 +127,7 @@ public class UserController {
             String userId = getCurrentUserId(httpRequest);
             
             // 上传文件到 avatars 目录
-            String avatarUrl = storageService.uploadFile(file, "avatars");
+            String avatarUrl = fileStorageService.uploadFile(file, "avatars");
             log.info("头像上传成功: {}", avatarUrl);
             
             // 更新用户头像URL

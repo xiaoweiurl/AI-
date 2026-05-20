@@ -13,8 +13,8 @@ import com.imagemanager.repository.ProductRepository;
 import com.imagemanager.service.AIRecognitionService;
 import com.imagemanager.service.AlbumService;
 import com.imagemanager.service.ImageEnhancementService;
+import com.imagemanager.service.FileStorageService;
 import com.imagemanager.service.ImageService;
-import com.imagemanager.service.StorageService;
 import com.imagemanager.util.CharsetUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -62,7 +62,7 @@ public class ImageServiceImpl implements ImageService {
     private String uploadPath;
     
     @Autowired(required = false)
-    private StorageService storageService;
+    private FileStorageService fileStorageService;
     
     @Autowired
     private AIRecognitionService aiRecognitionService;
@@ -326,8 +326,8 @@ public class ImageServiceImpl implements ImageService {
             
             // 使用存储服务上传文件
             if (storageService != null) {
-                imageUrl = storageService.uploadFile(file, "images");
-                fileKey = storageService.getStorageKey(imageUrl);
+                imageUrl = fileStorageService.uploadFile(file, "images");
+                fileKey = fileStorageService.getStorageKey(imageUrl);
             } else {
                 // 本地存储（开发模式）
                 imageUrl = "/uploads/" + UUID.randomUUID() + getFileExtension(originalFilename);
@@ -1124,8 +1124,8 @@ public class ImageServiceImpl implements ImageService {
             
             // 使用存储服务上传文件
             if (storageService != null) {
-                imageUrl = storageService.uploadFile(file, "images");
-                fileKey = storageService.getStorageKey(imageUrl);
+                imageUrl = fileStorageService.uploadFile(file, "images");
+                fileKey = fileStorageService.getStorageKey(imageUrl);
             } else {
                 // 本地存储（开发模式）
                 imageUrl = "/uploads/" + UUID.randomUUID() + getFileExtension(originalFilename);
@@ -1922,8 +1922,8 @@ public class ImageServiceImpl implements ImageService {
             
             // 使用存储服务上传文件
             if (storageService != null) {
-                imageUrl = storageService.uploadFile(file, "images");
-                fileKey = storageService.getStorageKey(imageUrl);
+                imageUrl = fileStorageService.uploadFile(file, "images");
+                fileKey = fileStorageService.getStorageKey(imageUrl);
             } else {
                 // 本地存储（开发模式）
                 imageUrl = "/uploads/" + UUID.randomUUID() + getFileExtension(originalFilename);
@@ -2389,7 +2389,7 @@ public class ImageServiceImpl implements ImageService {
                 }
                 
                 log.debug("尝试从本地存储读取图片：thumbnailUrl={}, 提取路径={}", image.getThumbnailUrl(), localPath);
-                java.io.InputStream inputStream = storageService.getFileInputStream(localPath);
+                java.io.InputStream inputStream = fileStorageService.getFileInputStream(localPath);
                 if (inputStream != null) {
                     imageData = inputStream.readAllBytes();
                     inputStream.close();
@@ -2494,7 +2494,7 @@ public class ImageServiceImpl implements ImageService {
         if (image.getFileKey() != null && !image.getFileKey().isEmpty()) {
             try {
                 if (storageService != null) {
-                    storageService.deleteFile(image.getFileKey());
+                    fileStorageService.deleteFile(image.getFileKey());
                     log.info("从存储删除图片文件: {}", image.getFileKey());
                 }
             } catch (Exception e) {

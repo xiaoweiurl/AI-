@@ -4,7 +4,7 @@ import com.imagemanager.dto.WatermarkRemoveRequest;
 import com.imagemanager.dto.WatermarkRemoveResponse;
 import com.imagemanager.entity.Image;
 import com.imagemanager.repository.ImageRepository;
-import com.imagemanager.service.StorageService;
+import com.imagemanager.service.FileStorageService;
 import com.imagemanager.service.WatermarkRemoveService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +37,7 @@ public class WatermarkRemoveServiceImpl implements WatermarkRemoveService {
     private ImageRepository imageRepository;
     
     @Autowired
-    private StorageService storageService;
+    private FileStorageService fileStorageService;
     
     @Value("${watermark.remove.enabled:false}")
     private boolean watermarkRemoveEnabled;
@@ -153,7 +153,7 @@ public class WatermarkRemoveServiceImpl implements WatermarkRemoveService {
         String fileName = originalFileName + "-" + UUID.randomUUID().toString().substring(0, 8) + ".jpg";
         
         // 使用 StorageService 直接存储字节数组
-        String fileUrl = storageService.uploadFile(imageData, fileName, "image/jpeg");
+        String fileUrl = fileStorageService.uploadFile(imageData, fileName, "image/jpeg");
         
         return fileUrl;
     }

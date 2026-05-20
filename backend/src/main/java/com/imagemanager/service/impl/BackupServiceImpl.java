@@ -140,11 +140,11 @@ public class BackupServiceImpl implements BackupService {
             }
             
             // 相册数据
-            List<Album> albums = albumRepository.findByUserId(userId);
+            List<Album> albums = albumRepository.findByUserIdOrderBySortOrderAsc(userId);
             exportData.put("albums", albums);
             
             // 图片数据
-            List<Image> images = imageRepository.findByUserIdAndDeletedFalse(userId);
+            List<Image> images = imageRepository.findAllByUserIdAndDeletedFalse(userId);
             exportData.put("images", images);
             
             // 存储配额

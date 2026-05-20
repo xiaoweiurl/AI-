@@ -148,6 +148,11 @@ public interface ImageRepository extends JpaRepository<Image, String>, JpaSpecif
     Page<Image> findByUserIdAndDeletedFalse(String userId, Pageable pageable);
     
     /**
+     * 按用户查询未删除的图片（不分页）
+     */
+    List<Image> findAllByUserIdAndDeletedFalse(String userId);
+    
+    /**
      * 查询收藏的图片
      */
     Page<Image> findByFavoriteTrueAndDeletedFalse(Pageable pageable);

@@ -1,5 +1,6 @@
 package com.imagemanager.controller;
 
+import com.imagemanager.config.AuthInterceptor;
 import com.imagemanager.dto.*;
 import com.imagemanager.service.ShareService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,7 +26,7 @@ public class ShareController {
     public ResponseEntity<ShareLinkDTO> createShare(
             @Valid @RequestBody CreateShareRequest request,
             HttpServletRequest httpRequest) {
-        String userId = (String) httpRequest.getAttribute("userId");
+        String userId = getUserId(httpRequest);
         String baseUrl = getBaseUrl(httpRequest);
         ShareLinkDTO share = shareService.createShare(request, userId, baseUrl);
         return ResponseEntity.ok(share);
@@ -41,7 +42,7 @@ public class ShareController {
             @RequestParam(required = false) String resourceType,
             @RequestParam(required = false) String resourceId,
             HttpServletRequest httpRequest) {
-        String userId = (String) httpRequest.getAttribute("userId");
+        String userId = getUserId(httpRequest);
         // 调用接口中定义的方法
         Page<ShareLinkDTO> shares = shareService.getUserShares(userId, resourceType, page, pageSize);
         return ResponseEntity.ok(shares);
@@ -54,7 +55,7 @@ public class ShareController {
     public ResponseEntity<ShareLinkDTO> getShareById(
             @PathVariable String id,
             HttpServletRequest httpRequest) {
-        String userId = (String) httpRequest.getAttribute("userId");
+        String userId = getUserId(httpRequest);
         // 调用接口中定义的方法
         ShareLinkDTO share = shareService.getShareDetail(id, userId);
         return ResponseEntity.ok(share);
@@ -67,7 +68,7 @@ public class ShareController {
     public ResponseEntity<Void> deleteShareByCode(
             @PathVariable String shareCode,
             HttpServletRequest httpRequest) {
-        String userId = (String) httpRequest.getAttribute("userId");
+        String userId = getUserId(httpRequest);
         shareService.deleteShareByCode(shareCode, userId);
         return ResponseEntity.noContent().build();
     }
@@ -79,7 +80,7 @@ public class ShareController {
     public ResponseEntity<Void> deleteShare(
             @PathVariable String id,
             HttpServletRequest httpRequest) {
-        String userId = (String) httpRequest.getAttribute("userId");
+        String userId = getUserId(httpRequest);
         shareService.deleteShare(id, userId);
         return ResponseEntity.noContent().build();
     }
@@ -141,6 +142,14 @@ public class ShareController {
         // 调用接口中定义的方法
         Map<String, Object> stats = shareService.getShareAccessStats(id, period);
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * 从 request 属性中获取用户 ID
+     */
+    private String getUserId(HttpServletRequest request) {
+        LoginResponse.UserInfo userInfo = (LoginResponse.UserInfo) request.getAttribute(AuthInterceptor.USER_INFO_ATTRIBUTE);
+        return userInfo != null ? userInfo.getId() : null;
     }
 
     /**

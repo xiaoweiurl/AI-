@@ -1,8 +1,10 @@
 package com.imagemanager.controller;
 
+import com.imagemanager.config.AuthInterceptor;
 import com.imagemanager.dto.AuditLogDTO;
+import com.imagemanager.dto.LoginResponse;
 import com.imagemanager.service.AuditService;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -31,17 +33,17 @@ public class AuditController {
     public ResponseEntity<Map<String, Object>> getMyLogs(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        Page<AuditLogDTO> logs = auditService.getUserLogs(userId, page, pageSize);
+        Page<AuditLogDTO> logs = auditService.getUserLogs(userInfo.getId(), page, pageSize);
         
         result.put("success", true);
         result.put("data", logs.getContent());
@@ -63,19 +65,18 @@ public class AuditController {
             @RequestParam(required = false) String endTime,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String currentUserId = (String) session.getAttribute("userId");
-        if (currentUserId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
         // 检查管理员权限
-        String role = (String) session.getAttribute("role");
-        if (!"admin".equals(role)) {
+        if (!"ADMIN".equalsIgnoreCase(userInfo.getRole())) {
             result.put("error", "无权限");
             return ResponseEntity.status(403).body(result);
         }
@@ -95,11 +96,11 @@ public class AuditController {
      * 获取所有操作类型
      */
     @GetMapping("/actions")
-    public ResponseEntity<Map<String, Object>> getAllActions(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> getAllActions(HttpServletRequest request) {
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
@@ -117,18 +118,17 @@ public class AuditController {
     @DeleteMapping("/clean")
     public ResponseEntity<Map<String, Object>> cleanOldLogs(
             @RequestParam(defaultValue = "90") int retentionDays,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        String role = (String) session.getAttribute("role");
-        if (!"admin".equals(role)) {
+        if (!"ADMIN".equalsIgnoreCase(userInfo.getRole())) {
             result.put("error", "无权限");
             return ResponseEntity.status(403).body(result);
         }
@@ -138,5 +138,12 @@ public class AuditController {
         result.put("success", true);
         result.put("message", "已清理 " + retentionDays + " 天前的日志");
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 从 request 属性中获取用户信息
+     */
+    private LoginResponse.UserInfo getUserInfo(HttpServletRequest request) {
+        return (LoginResponse.UserInfo) request.getAttribute(AuthInterceptor.USER_INFO_ATTRIBUTE);
     }
 }

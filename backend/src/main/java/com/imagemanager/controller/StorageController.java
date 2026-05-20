@@ -1,8 +1,10 @@
 package com.imagemanager.controller;
 
+import com.imagemanager.config.AuthInterceptor;
+import com.imagemanager.dto.LoginResponse;
 import com.imagemanager.dto.StorageQuotaDTO;
 import com.imagemanager.service.StorageService;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -27,16 +29,16 @@ public class StorageController {
      * 获取当前用户的存储配额
      */
     @GetMapping("/quota")
-    public ResponseEntity<Map<String, Object>> getMyQuota(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> getMyQuota(HttpServletRequest request) {
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        StorageQuotaDTO quota = storageService.getUserQuota(userId);
+        StorageQuotaDTO quota = storageService.getUserQuota(userInfo.getId());
         
         result.put("success", true);
         result.put("data", quota);
@@ -50,18 +52,17 @@ public class StorageController {
     public ResponseEntity<Map<String, Object>> updateQuota(
             @PathVariable String userId,
             @RequestParam Long maxStorageBytes,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String currentUserId = (String) session.getAttribute("userId");
-        if (currentUserId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        String role = (String) session.getAttribute("role");
-        if (!"admin".equals(role)) {
+        if (!"ADMIN".equalsIgnoreCase(userInfo.getRole())) {
             result.put("error", "无权限");
             return ResponseEntity.status(403).body(result);
         }
@@ -77,17 +78,16 @@ public class StorageController {
      * 获取系统存储统计（管理员）
      */
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getSystemStats(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> getSystemStats(HttpServletRequest request) {
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        String role = (String) session.getAttribute("role");
-        if (!"admin".equals(role)) {
+        if (!"ADMIN".equalsIgnoreCase(userInfo.getRole())) {
             result.put("error", "无权限");
             return ResponseEntity.status(403).body(result);
         }
@@ -106,18 +106,17 @@ public class StorageController {
     public ResponseEntity<Map<String, Object>> getAllQuotas(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        String role = (String) session.getAttribute("role");
-        if (!"admin".equals(role)) {
+        if (!"ADMIN".equalsIgnoreCase(userInfo.getRole())) {
             result.put("error", "无权限");
             return ResponseEntity.status(403).body(result);
         }
@@ -136,19 +135,26 @@ public class StorageController {
      * 重新计算用户存储使用量
      */
     @PostMapping("/recalculate")
-    public ResponseEntity<Map<String, Object>> recalculateStorage(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> recalculateStorage(HttpServletRequest request) {
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        storageService.recalculateUsedStorage(userId);
+        storageService.recalculateUsedStorage(userInfo.getId());
         
         result.put("success", true);
         result.put("message", "存储使用量已重新计算");
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * 从 request 属性中获取用户信息
+     */
+    private LoginResponse.UserInfo getUserInfo(HttpServletRequest request) {
+        return (LoginResponse.UserInfo) request.getAttribute(AuthInterceptor.USER_INFO_ATTRIBUTE);
     }
 }

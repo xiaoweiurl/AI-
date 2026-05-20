@@ -1,7 +1,9 @@
 package com.imagemanager.controller;
 
+import com.imagemanager.config.AuthInterceptor;
+import com.imagemanager.dto.LoginResponse;
 import com.imagemanager.service.BackupService;
-import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -29,17 +31,17 @@ public class BackupController {
     @PostMapping("/create")
     public ResponseEntity<Map<String, Object>> createBackup(
             @RequestParam(defaultValue = "full") String backupType,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        Map<String, Object> backupResult = backupService.createBackup(userId, backupType);
+        Map<String, Object> backupResult = backupService.createBackup(userInfo.getId(), backupType);
         
         if (backupResult.containsKey("error")) {
             return ResponseEntity.badRequest().body(backupResult);
@@ -52,14 +54,14 @@ public class BackupController {
      * 下载备份
      */
     @GetMapping("/download")
-    public ResponseEntity<byte[]> downloadBackup(HttpSession session) {
+    public ResponseEntity<byte[]> downloadBackup(HttpServletRequest request) {
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             return ResponseEntity.status(401).build();
         }
 
-        return backupService.downloadBackup(userId, null);
+        return backupService.downloadBackup(userInfo.getId(), null);
     }
 
     /**
@@ -68,19 +70,19 @@ public class BackupController {
     @PostMapping("/import")
     public ResponseEntity<Map<String, Object>> importData(
             @RequestParam("file") MultipartFile file,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
         try {
             String jsonData = new String(file.getBytes(), StandardCharsets.UTF_8);
-            Map<String, Object> importResult = backupService.importUserData(userId, jsonData);
+            Map<String, Object> importResult = backupService.importUserData(userInfo.getId(), jsonData);
             
             if (importResult.containsKey("error")) {
                 return ResponseEntity.badRequest().body(importResult);
@@ -98,17 +100,17 @@ public class BackupController {
      * 导出数据
      */
     @GetMapping("/export")
-    public ResponseEntity<Map<String, Object>> exportData(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> exportData(HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        Map<String, Object> exportResult = backupService.exportUserData(userId);
+        Map<String, Object> exportResult = backupService.exportUserData(userInfo.getId());
         
         result.put("success", true);
         result.put("data", exportResult);
@@ -122,17 +124,24 @@ public class BackupController {
     public ResponseEntity<Map<String, Object>> getBackupList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize,
-            HttpSession session) {
+            HttpServletRequest request) {
         
         Map<String, Object> result = new HashMap<>();
         
-        String userId = (String) session.getAttribute("userId");
-        if (userId == null) {
+        LoginResponse.UserInfo userInfo = getUserInfo(request);
+        if (userInfo == null) {
             result.put("error", "未登录");
             return ResponseEntity.status(401).body(result);
         }
 
-        Map<String, Object> listResult = backupService.getBackupList(userId, page, pageSize);
+        Map<String, Object> listResult = backupService.getBackupList(userInfo.getId(), page, pageSize);
         return ResponseEntity.ok(listResult);
+    }
+
+    /**
+     * 从 request 属性中获取用户信息
+     */
+    private LoginResponse.UserInfo getUserInfo(HttpServletRequest request) {
+        return (LoginResponse.UserInfo) request.getAttribute(AuthInterceptor.USER_INFO_ATTRIBUTE);
     }
 }

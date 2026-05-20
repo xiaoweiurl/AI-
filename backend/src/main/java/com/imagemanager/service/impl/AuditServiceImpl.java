@@ -16,9 +16,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Slf4j
@@ -155,20 +155,21 @@ public class AuditServiceImpl implements AuditService {
     private String calculateTimeAgo(LocalDateTime dateTime) {
         if (dateTime == null) return "";
         
-        long minutes = ChronoUnit.MINUTES.between(dateTime, LocalDateTime.now());
+        Duration duration = Duration.between(dateTime, LocalDateTime.now());
+        long minutes = duration.toMinutes();
         if (minutes < 1) return "刚刚";
         if (minutes < 60) return minutes + "分钟前";
         
-        long hours = ChronoUnit.HOURS.between(dateTime, LocalDateTime.now());
+        long hours = duration.toHours();
         if (hours < 24) return hours + "小时前";
         
-        long days = ChronoUnit.DAYS.between(dateTime, LocalDateTime.now());
+        long days = duration.toDays();
         if (days < 30) return days + "天前";
         
-        long months = ChronoUnit.MONTHS.between(dateTime, LocalDateTime.now());
+        long months = days / 30;
         if (months < 12) return months + "个月前";
         
-        long years = ChronoUnit.YEARS.between(dateTime, LocalDateTime.now());
+        long years = days / 365;
         return years + "年前";
     }
 }

@@ -167,8 +167,8 @@ public class StorageServiceImpl implements StorageService {
                 .ifPresent(user -> dto.setUsername(user.getUsername()));
 
         // 获取图片和相册数量
-        dto.setImageCount(imageRepository.countByUserIdAndDeletedFalse(quota.getUserId()).intValue());
-        dto.setAlbumCount(albumRepository.countByUserId(quota.getUserId()).intValue());
+        dto.setImageCount((int) imageRepository.countByUserIdAndDeletedFalse(quota.getUserId()));
+        dto.setAlbumCount((int) albumRepository.countByUserId(quota.getUserId()));
 
         return dto;
     }

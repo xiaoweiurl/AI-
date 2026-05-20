@@ -107,7 +107,20 @@ export default function ShareDialog({
       });
 
       const data = await response.json();
-      if (data.shareCode) {
+      
+      // 兼容两种返回格式：
+      // 1. 后端直接返回 ShareLinkDTO: { shareCode, shareUrl, ... }
+      // 2. 降级模式返回: { shareCode, shareLink: {...} }
+      const shareCode = data.shareCode || (data.shareLink?.shareCode);
+      const shareUrl = data.shareUrl || (data.shareLink?.shareUrl) || `${window.location.origin}/share/${shareCode}`;
+      
+      if (shareCode) {
+        // 自动复制到剪贴板
+        navigator.clipboard.writeText(shareUrl);
+        
+        // 显示成功提示
+        alert(`分享链接创建成功！\n\n链接已复制到剪贴板：\n${shareUrl}`);
+        
         await loadShareLinks();
         setShowCreateForm(false);
         setHasPassword(false);

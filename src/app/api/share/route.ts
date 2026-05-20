@@ -70,6 +70,18 @@ export async function POST(request: NextRequest) {
     });
 
     const data = await response.json();
+    
+    // 后端直接返回 ShareLinkDTO，包装成前端期望的格式
+    if (response.ok && data.shareCode) {
+      return NextResponse.json({
+        success: true,
+        shareCode: data.shareCode,
+        shareUrl: data.shareUrl || `${process.env.COZE_PROJECT_DOMAIN_DEFAULT}/share/${data.shareCode}`,
+        shareLink: data,
+        message: '分享链接创建成功'
+      });
+    }
+    
     return NextResponse.json(data, { status: response.status });
   } catch (error) {
     console.error('Create share error:', error);
@@ -113,6 +125,7 @@ export async function GET(request: NextRequest) {
 
     const params = new URLSearchParams();
     if (resourceType) params.append('resourceType', resourceType);
+    if (resourceId) params.append('resourceId', resourceId);
     params.append('page', page);
     params.append('pageSize', pageSize);
 
@@ -124,14 +137,32 @@ export async function GET(request: NextRequest) {
 
     const data = await response.json();
     
-    // 如果指定了 resourceId，过滤结果
-    if (resourceId && data.data) {
-      data.data = data.data.filter(
-        (link: { resourceId: string }) => link.resourceId === resourceId
-      );
+    // 后端返回 Page<ShareLinkDTO>，需要提取 content 数组
+    let shareLinks = [];
+    let total = 0;
+    
+    if (data.content) {
+      shareLinks = data.content;
+      total = data.totalElements || shareLinks.length;
+    } else if (Array.isArray(data)) {
+      shareLinks = data;
+      total = data.length;
     }
     
-    return NextResponse.json(data, { status: response.status });
+    // 如果指定了 resourceId，过滤结果
+    if (resourceId) {
+      shareLinks = shareLinks.filter(
+        (link: { resourceId: string }) => link.resourceId === resourceId
+      );
+      total = shareLinks.length;
+    }
+    
+    return NextResponse.json({ 
+      success: true, 
+      shareLinks, 
+      total,
+      message: '获取成功'
+    });
   } catch (error) {
     console.error('Get shares error:', error);
     return NextResponse.json({ error: '获取分享列表失败' }, { status: 500 });

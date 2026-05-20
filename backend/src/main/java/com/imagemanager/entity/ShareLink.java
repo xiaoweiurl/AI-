@@ -20,6 +20,9 @@ public class ShareLink {
     @Column(name = "resource_id", nullable = false, length = 36)
     private String resourceId;
 
+    @Column(name = "resource_name", length = 255)
+    private String resourceName;
+
     @Column(name = "share_code", nullable = false, unique = true, length = 10)
     private String shareCode;
 

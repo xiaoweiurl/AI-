@@ -56,6 +56,8 @@ public class ShareServiceImpl implements ShareService {
         ShareLink shareLink = new ShareLink();
         shareLink.setResourceType(request.getResourceType());
         shareLink.setResourceId(request.getResourceId());
+        // 优先使用请求中的名称，否则使用从数据库获取的名称
+        shareLink.setResourceName(request.getResourceName() != null ? request.getResourceName() : resourceName);
         shareLink.setShareCode(generateShareCode());
         shareLink.setPassword(request.getPassword());
         shareLink.setMaxViews(request.getMaxViews());
@@ -294,7 +296,12 @@ public class ShareServiceImpl implements ShareService {
         dto.setId(shareLink.getId());
         dto.setResourceType(shareLink.getResourceType());
         dto.setResourceId(shareLink.getResourceId());
-        dto.setResourceName(getResourceName(shareLink.getResourceType(), shareLink.getResourceId()));
+        // 优先使用存储的名称，否则从数据库获取
+        if (shareLink.getResourceName() != null) {
+            dto.setResourceName(shareLink.getResourceName());
+        } else {
+            dto.setResourceName(getResourceName(shareLink.getResourceType(), shareLink.getResourceId()));
+        }
         dto.setShareCode(shareLink.getShareCode());
         dto.setPassword(shareLink.getPassword() != null ? "******" : null);
         dto.setExpireAt(shareLink.getExpireAt());

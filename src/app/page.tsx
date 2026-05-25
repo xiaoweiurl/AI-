@@ -29,11 +29,19 @@ import type { ImageItem } from '@/components/ImageCard';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import AdvancedSearch, { DEFAULT_FILTERS, type AdvancedSearchFilters } from '@/components/AdvancedSearch';
+import { backendFetch as apiBackendFetch, getApiBaseUrl } from '@/lib/backend-proxy';
 
-// 后端 API 基础 URL
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
-// 后端静态资源 URL（用于图片等）
-const BACKEND_STATIC_URL = process.env.NEXT_PUBLIC_BACKEND_STATIC_URL || 'http://localhost:8080';
+// 动态获取后端 API URL（支持 ngrok）
+function getBackendApiUrl(): string {
+  return getApiBaseUrl();
+}
+
+// 动态获取后端静态资源 URL
+function getBackendStaticUrl(): string {
+  const apiUrl = getApiBaseUrl();
+  // 移除 /api 后缀，获取静态资源 URL
+  return apiUrl.replace(/\/api$/, '');
+}
 
 // 获取完整的图片 URL
 function getFullImageUrl(url: string | undefined): string {
@@ -43,7 +51,8 @@ function getFullImageUrl(url: string | undefined): string {
     return url;
   }
   // 如果是相对路径，添加后端静态资源 URL
-  return `${BACKEND_STATIC_URL}/${url.replace(/^\//, '')}`;
+  const staticUrl = getBackendStaticUrl();
+  return `${staticUrl}/${url.replace(/^\//, '')}`;
 }
 
 // 获取 sessionId（从 localStorage）
@@ -57,10 +66,10 @@ function isApiSuccess(result: Record<string, unknown>): boolean {
   return result.success === true || result.code === 200 || result.code === 201;
 }
 
-// 直接调用后端 API
+// 直接调用后端 API（使用动态 URL）
 async function backendFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
   const sessionId = getSessionId();
-  const url = `${BACKEND_API_URL}${endpoint}`;
+  const url = `${getBackendApiUrl()}${endpoint}`;
   
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),

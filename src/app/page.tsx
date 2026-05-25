@@ -298,7 +298,7 @@ export default function Home() {
   const fetchDocumentStats = React.useCallback(async () => {
     try {
       const sessionId = getSessionId();
-      const response = await fetch(`${BACKEND_API_URL}/documents/stats`, {
+      const response = await fetch(`${getBackendApiUrl()}/documents/stats`, {
         headers: {
           'X-Session-Id': sessionId || '',
         },

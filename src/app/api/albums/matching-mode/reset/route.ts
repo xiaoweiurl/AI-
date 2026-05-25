@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 interface ApiResult {
   success: boolean;
@@ -33,12 +33,8 @@ export async function PUT(request: NextRequest) {
   try {
     const cookieHeader = request.headers.get('cookie') || '';
 
-    const response = await backendFetch('/albums/matching-mode/reset', {
-      method: 'PUT',
-      requestHeaders: {
-        cookie: cookieHeader,
-      },
-    });
+    const response = await backendRequest(request, '/albums/matching-mode/reset', {
+      method: 'PUT'});
 
     const { result } = await safeParseResponse(response);
 

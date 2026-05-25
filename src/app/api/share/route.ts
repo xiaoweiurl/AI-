@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch, isBackendAvailable } from '@/lib/backend-proxy';
+import { backendRequest, isBackendAvailable } from '@/lib/api-utils';
 
 // Mock 分享链接数据存储（降级模式使用）
 const mockShareLinks: Map<string, unknown[]> = new Map();
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
     
-    const response = await backendFetch('/share', {
+    const response = await backendRequest(request, '/share', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,11 +142,7 @@ export async function GET(request: NextRequest) {
     params.append('page', page);
     params.append('pageSize', pageSize);
 
-    const response = await backendFetch(`/share/my?${params.toString()}`, {
-      headers: {
-        'X-Session-Id': sessionId || '',
-      },
-    });
+    const response = await backendRequest(request, `/share/my?${params.toString()}`);
 
     const data = await response.json();
     
@@ -213,12 +209,10 @@ export async function DELETE(request: NextRequest) {
     // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await backendFetch(`/share/${shareId}`, {
+    const response = await backendRequest(request, `/share/${shareId}`, {
       method: 'DELETE',
       headers: {
-        'X-Session-Id': sessionId || '',
-      },
-    });
+        'X-Session-Id': sessionId || ''}});
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * 安全解析响应
@@ -123,9 +123,8 @@ export async function GET(
     const cookieHeader = request.headers.get('cookie') || '';
 
     // TODO: 后端实现后，转发到后端 API
-    // const response = await backendFetch(`/smart-albums/${id}`, {
-    //   requestHeaders: { cookie: cookieHeader },
-    // });
+    // const response = await backendRequest(request, `/smart-albums/${id}`, {
+    //   // });
     // const { result } = await safeParseResponse(response);
     // return NextResponse.json(result);
 
@@ -161,11 +160,10 @@ export async function PUT(
     }
 
     // TODO: 后端实现后，转发到后端 API
-    // const response = await backendFetch(`/smart-albums/${id}`, {
+    // const response = await backendRequest(request, `/smart-albums/${id}`, {
     //   method: 'PUT',
-    //   body: { name, description, matchingConfig },
-    //   requestHeaders: { cookie: cookieHeader },
-    // });
+    //   body: JSON.stringify({ name, description, matchingConfig }),
+    //   // });
     // const { result } = await safeParseResponse(response);
     // return NextResponse.json(result);
 
@@ -206,10 +204,9 @@ export async function DELETE(
     }
 
     // TODO: 后端实现后，转发到后端 API
-    // const response = await backendFetch(`/smart-albums/${id}`, {
+    // const response = await backendRequest(request, `/smart-albums/${id}`, {
     //   method: 'DELETE',
-    //   requestHeaders: { cookie: cookieHeader },
-    // });
+    //   // });
     // const { result } = await safeParseResponse(response);
     // return NextResponse.json(result);
 

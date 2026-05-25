@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isBackendAvailable, backendFetch } from '@/lib/backend-proxy';
+import { backendRequest, isBackendAvailable } from '@/lib/api-utils';
 
 // 获取存储统计
 export async function GET(request: NextRequest) {
@@ -33,11 +33,9 @@ export async function GET(request: NextRequest) {
     // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await backendFetch('/storage/stats', {
+    const response = await backendRequest(request, '/storage/stats', {
       headers: {
-        'X-Session-Id': sessionId || '',
-      },
-    });
+        'X-Session-Id': sessionId || ''}});
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
@@ -64,7 +62,7 @@ export async function PUT(request: NextRequest) {
     
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await backendFetch('/storage/quota', {
+    const response = await backendRequest(request, '/storage/quota', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

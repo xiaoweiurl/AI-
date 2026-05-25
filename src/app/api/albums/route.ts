@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 interface AlbumRequest {
   name: string;
@@ -49,21 +49,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cookieHeader = request.headers.get('cookie') || '';
-
     const requestBody: Record<string, unknown> = { name, description: description || '' };
     if (matchingConfig) {
       requestBody.matchingConfig = matchingConfig;
     }
 
-    const requestHeaders: Record<string, string | null> = {
-      cookie: cookieHeader,
-    };
-
-    const response = await backendFetch('/albums', {
+    const response = await backendRequest(request, '/albums', {
       method: 'POST',
-      body: requestBody,
-      requestHeaders,
+      body: JSON.stringify(requestBody),
     });
 
     const { result } = await safeParseResponse(response);
@@ -87,16 +80,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieHeader = request.headers.get('cookie') || '';
-    const requestHeaders: Record<string, string | null> = {
-      cookie: cookieHeader,
-    };
+    const response = await backendRequest(request, '/albums');
 
-    const response = await backendFetch('/albums', {
-      requestHeaders,
-    });
-
-    const { ok, result } = await safeParseResponse(response);
+    const { result } = await safeParseResponse(response);
 
     if (result) {
       return NextResponse.json({

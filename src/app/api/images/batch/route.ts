@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * @swagger
@@ -63,7 +63,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { operation, imageIds, targetAlbumId } = body;
-    const cookieHeader = request.headers.get('cookie') || '';
     
     if (!operation) {
       return NextResponse.json(
@@ -94,16 +93,13 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const response = await backendFetch('/images/batch', {
+    const response = await backendRequest(request, '/images/batch', {
       method: 'POST',
-      body: { operation, imageIds, targetAlbumId },
-      requestHeaders: {
-        cookie: cookieHeader,
-      },
+      body: JSON.stringify({ operation, imageIds, targetAlbumId }),
     });
-    const result = await handleBackendResponse(response);
     
-    return NextResponse.json(result, { status: result.success ? 200 : 500 });
+    const result = await response.json();
+    return NextResponse.json(result, { status: response.status });
   } catch (error) {
     console.error('[API] 批量操作失败:', error);
     return NextResponse.json(

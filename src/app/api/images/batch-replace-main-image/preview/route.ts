@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * 预览批量替换主图
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 先获取这些图片的详情，拿到商品ID
-        const imageDetailsResponse = await backendFetch(`/images/by-ids?ids=${imageIds.join(',')}`, {
+        const imageDetailsResponse = await backendRequest(request, `/images/by-ids?ids=${imageIds.join(',')}`, {
             method: 'GET',
             headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
         });
@@ -54,10 +54,9 @@ export async function POST(request: NextRequest) {
         
         for (const productId of productIds) {
             // 获取该商品的所有图片
-            const productImagesResponse = await backendFetch(`/images/by-product/${productId}`, {
+            const productImagesResponse = await backendRequest(request, `/images/by-product/${productId}`, {
                 method: 'GET',
-                headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
-            });
+                headers: sessionId ? { 'X-Session-Id': sessionId } : undefined});
             const productImagesResult = await productImagesResponse.json();
 
             if (productImagesResult.success || productImagesResult.code === 200) {

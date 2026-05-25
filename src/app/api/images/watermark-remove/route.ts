@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -15,11 +15,9 @@ export async function POST(request: NextRequest) {
 
     console.log('[Watermark Remove] 代理请求到 Java 后端');
 
-    const response = await backendFetch('/images/watermark-remove', {
+    const response = await backendRequest(request, '/images/watermark-remove', {
       method: 'POST',
-      body,
-      requestHeaders: { cookie: cookieHeader },
-    });
+      body});
 
     if (response.ok) {
       const result = await response.json();

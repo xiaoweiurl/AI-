@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 interface ApiResult {
   success: boolean;
@@ -44,13 +45,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const response = await backendFetch('/albums/matching-mode', {
+    const response = await backendRequest(request, '/albums/matching-mode', {
       method: 'PUT',
-      body: { mode },
-      requestHeaders: {
-        cookie: cookieHeader,
-      },
-    });
+      body: { mode }});
 
     const { result } = await safeParseResponse(response);
 

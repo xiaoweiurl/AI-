@@ -31,15 +31,13 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getBackendApiUrl } from '@/lib/config/backend-url';
 
 interface DocumentUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadSuccess?: () => void;
 }
-
-// 后端 API 基础 URL
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
 
 // 文档分类类型
 export type DocumentCategory = 'pdf' | 'word' | 'excel' | 'ppt' | 'zip' | 'other';
@@ -139,13 +137,13 @@ export default function DocumentUploadDialog({
     
     // 如果是相对路径（/uploads/xxx），拼接后端 API 地址
     if (url.startsWith('/uploads/')) {
-      const baseUrl = BACKEND_API_URL.replace('/api', '');
+      const baseUrl = getBackendApiUrl().replace('/api', '');
       return `${baseUrl}${url}`;
     }
     
     // 其他相对路径
     if (url.startsWith('/')) {
-      const baseUrl = BACKEND_API_URL.replace('/api', '');
+      const baseUrl = getBackendApiUrl().replace('/api', '');
       return `${baseUrl}${url}`;
     }
     
@@ -251,7 +249,7 @@ export default function DocumentUploadDialog({
 
         // 直接调用 Java 后端 API，添加 session
         const sessionId = getSessionId();
-        const response = await fetch(`${BACKEND_API_URL}/documents/upload`, {
+        const response = await fetch(`${getBackendApiUrl()}/documents/upload`, {
           method: 'POST',
           credentials: 'include',
           headers: {

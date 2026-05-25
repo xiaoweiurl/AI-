@@ -4,7 +4,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { getBackendApiUrl } from './config/backend-url';
+import { getServerBackendUrl } from './config/backend-url';
 
 /**
  * 向后端发送请求
@@ -23,7 +23,7 @@ export async function backendFetch(
     requestHost = forwardedHost || host;
   }
   
-  const apiUrl = getBackendApiUrl(requestHost);
+  const apiUrl = getServerBackendUrl(requestHost);
   const url = `${apiUrl}${path}`;
   
   // 从请求或 document.cookie 获取 session
@@ -44,9 +44,9 @@ export async function backendFetch(
     }
   }
 
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers || {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
 
   if (sessionId) {
@@ -87,7 +87,7 @@ export async function backendFetchFormData(
     requestHost = forwardedHost || host;
   }
   
-  const apiUrl = getBackendApiUrl(requestHost);
+  const apiUrl = getServerBackendUrl(requestHost);
   const url = `${apiUrl}${path}`;
   
   // 从请求或 document.cookie 获取 session
@@ -183,7 +183,7 @@ export async function isBackendAvailable(requestHost?: string): Promise<boolean>
   }
   
   try {
-    const apiUrl = getBackendApiUrl(requestHost);
+    const apiUrl = getServerBackendUrl(requestHost);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
     

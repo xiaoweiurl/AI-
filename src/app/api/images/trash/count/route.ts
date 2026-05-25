@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * @swagger
@@ -31,14 +31,10 @@ export async function GET(request: NextRequest) {
   try {
     const cookieHeader = request.headers.get('cookie') || '';
     
-    const response = await backendFetch('/images/trash/count', {
-      requestHeaders: {
-        cookie: cookieHeader,
-      },
-    });
-    const result = await handleBackendResponse(response);
-    
-    return NextResponse.json(result, { status: result.success ? 200 : 500 });
+    const response = await backendRequest(request, '/images/trash/count', {
+      });
+    const result = await response.json();
+    return NextResponse.json(result, { status: response.status });
   } catch (error) {
     console.error('[API] 获取回收站数量失败:', error);
     return NextResponse.json(

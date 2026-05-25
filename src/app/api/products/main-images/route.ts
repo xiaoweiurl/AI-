@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * @swagger
@@ -101,15 +101,7 @@ export async function GET(request: NextRequest) {
     if (keyword) params.set('keyword', keyword);
 
     // 调用后端 API
-    const response = await backendFetch(
-      `/products/main-images?${params.toString()}`,
-      {
-        method: 'GET',
-        requestHeaders: {
-          cookie: cookieHeader,
-        },
-      }
-    );
+    const response = await backendRequest(request, `/products/main-images?${params.toString()}`);
 
     // 安全解析响应
     const text = await response.text();

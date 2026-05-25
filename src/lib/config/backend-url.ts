@@ -3,42 +3,22 @@
  * 支持 ngrok 代理自动检测
  */
 
-// 缓存后端可用性检测结果
-let backendAvailableCache: boolean | null = null;
-let lastCheckTime = 0;
-const CHECK_INTERVAL = 30000; // 30秒
-
 /**
- * 获取后端 API 基础 URL
+ * 获取后端 API 基础 URL（客户端安全版本）
+ * 
  * 优先级：
  * 1. 环境变量 NEXT_PUBLIC_BACKEND_API_URL
  * 2. 当前域名（如果是 ngrok 域名）
  * 3. 默认 localhost:8080
- * 
- * @param requestHost - 可选，从请求头获取的 host（用于 SSR）
  */
-export function getBackendApiUrl(requestHost?: string): string {
+export function getBackendApiUrl(): string {
   // 1. 检查环境变量（优先级最高）
   const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
   if (envUrl) {
     return envUrl;
   }
 
-  // 2. SSR 环境：使用传入的 requestHost
-  if (requestHost) {
-    const isNgrok = requestHost.includes('.ngrok-free.app') || 
-                    requestHost.includes('.ngrok.io') || 
-                    requestHost.includes('.ngrok.app');
-    const isProxy = requestHost !== 'localhost:5000' && 
-                    requestHost !== 'localhost:3000' && 
-                    !requestHost.startsWith('127.0.0.1');
-    
-    if (isNgrok || isProxy) {
-      return `https://${requestHost}/api`;
-    }
-  }
-
-  // 3. 浏览器环境下检测 ngrok 域名
+  // 2. 浏览器环境下检测 ngrok 域名
   if (typeof window !== 'undefined') {
     const hostname = window.location.hostname;
     const protocol = window.location.protocol;
@@ -56,7 +36,39 @@ export function getBackendApiUrl(requestHost?: string): string {
     }
   }
 
-  // 4. 默认本地开发
+  // 3. 默认本地开发
+  return 'http://localhost:8080/api';
+}
+
+/**
+ * 获取后端 API 基础 URL（服务端版本）
+ * 用于 API Routes 中，支持从请求头获取 host
+ * 
+ * @param requestHost - 可选的请求 host（从请求头获取）
+ */
+export function getServerBackendUrl(requestHost?: string): string {
+  // 1. 检查环境变量（优先级最高）
+  const envUrl = process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+
+  // 2. 如果提供了 host（来自请求头），检测是否为代理域名
+  if (requestHost) {
+    // 检测 ngrok 域名
+    if (requestHost.includes('.ngrok-free.app') || 
+        requestHost.includes('.ngrok.io') || 
+        requestHost.includes('.ngrok.app')) {
+      return `https://${requestHost}/api`;
+    }
+    
+    // 检测其他代理域名
+    if (requestHost !== 'localhost' && requestHost !== '127.0.0.1' && !requestHost.startsWith('localhost:')) {
+      return `https://${requestHost}/api`;
+    }
+  }
+
+  // 3. 默认本地开发
   return 'http://localhost:8080/api';
 }
 
@@ -93,3 +105,20 @@ export function useBackendUrl() {
     staticUrl: getBackendStaticUrl(),
   };
 }
+
+/**
+ * 获取客户端后端 URL（别名，兼容旧代码）
+ */
+export function getClientBackendUrl(): string {
+  return getBackendApiUrl();
+}
+
+/**
+ * 获取后端基础 URL（不带 /api 后缀）
+ */
+export function getBackendBaseUrl(): string {
+  return getBackendStaticUrl();
+}
+
+// 默认导出，方便使用
+export default getBackendApiUrl;

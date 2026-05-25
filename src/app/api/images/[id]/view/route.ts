@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * @swagger
@@ -27,10 +27,9 @@ export async function POST(
 ): Promise<Response> {
   const { id } = await params;
   
-  const response = await backendFetch(`/images/${id}/view`, {
+  const response = await backendRequest(request, `/images/${id}/view`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-  });
+    headers: { 'Content-Type': 'application/json' }});
   
   // 转发响应
   const data = await response.json();

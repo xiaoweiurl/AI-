@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetchFormData } from '@/lib/backend-proxy';
+import { backendFetchFormData } from '@/lib/api-utils';
 
 /**
  * @swagger

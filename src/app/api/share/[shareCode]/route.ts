@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch, isBackendAvailable } from '@/lib/backend-proxy';
+import { backendRequest, isBackendAvailable } from '@/lib/api-utils';
 
 // Mock 分享数据（与 route.ts 共享）
 declare global {
@@ -70,7 +70,7 @@ export async function GET(
     }
     
     // 后端可用，调用后端 API
-    const response = await backendFetch(`/share/access/${shareCode}?password=${encodeURIComponent(password)}`, {
+    const response = await backendRequest(request, `/share/access/${shareCode}?password=${encodeURIComponent(password, )}`, {
       method: 'GET',
     });
 
@@ -128,7 +128,7 @@ export async function POST(
     
     // 后端可用，调用后端 API
     // 后端路由: POST /api/share/access，请求体包含 shareCode 和 password
-    const response = await backendFetch('/share/access', {
+    const response = await backendRequest(request, '/share/access', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -165,9 +165,8 @@ export async function DELETE(
     
     // 后端可用，调用后端 API
     // 后端路由: DELETE /api/share/code/{shareCode}
-    const response = await backendFetch(`/share/code/${shareCode}`, {
-      method: 'DELETE',
-    });
+    const response = await backendRequest(request, `/share/code/${shareCode}`, {
+      method: 'DELETE'});
 
     // 后端返回 204 No Content，需要转换为 JSON
     if (response.status === 204) {

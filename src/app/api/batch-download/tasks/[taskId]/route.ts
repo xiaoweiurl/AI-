@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * @swagger
@@ -71,12 +71,8 @@ export async function GET(
 
         console.log(`[API] 查询任务进度, taskId: ${taskId}`);
 
-        const response = await backendFetch(`/images/batch-download/tasks/${taskId}`, {
-            method: 'GET',
-            requestHeaders: {
-                cookie: cookieHeader,
-            },
-        });
+        const response = await backendRequest(request, `/images/batch-download/tasks/${taskId}`, {
+            method: 'GET'});
 
         const data = await response.json();
         console.log(`[API] 任务进度响应:`, data);

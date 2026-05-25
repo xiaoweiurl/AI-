@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetch } from '@/lib/backend-proxy';
+import { backendRequest } from '@/lib/api-utils';
 
 /**
  * @swagger
@@ -31,12 +31,8 @@ export async function POST(
         const { id } = await params;
         const cookieHeader = request.headers.get('cookie') || '';
 
-        const response = await backendFetch(`/images/${id}/set-main`, {
-            method: 'POST',
-            requestHeaders: {
-                cookie: cookieHeader,
-            },
-        });
+        const response = await backendRequest(request, `/images/${id}/set-main`, {
+            method: 'POST'});
 
         const data = await response.json();
         return NextResponse.json(data, { status: response.status });

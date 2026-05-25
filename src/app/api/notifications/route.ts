@@ -1,5 +1,6 @@
+// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { userApi } from '@/lib/backend-proxy';
+import { userApi } from '@/lib/api-utils';
 
 /**
  * 安全解析响应

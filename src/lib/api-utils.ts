@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerBackendUrl } from './config/backend-url';
 
 // ==========================================
 // 安全配置
@@ -11,11 +12,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const SECURITY_CONFIG = {
   // 允许的后端域名白名单（生产环境应从环境变量读取）
-  allowedBackendOrigins: process.env.NODE_ENV === 'production'
-    ? [
-        process.env.BACKEND_API_URL || 'http://localhost:8080',
-      ]
-    : ['http://localhost:8080', 'http://127.0.0.1:8080'],
+  get allowedBackendOrigins() {
+    const serverUrl = getServerBackendUrl();
+    // 提取 origin（去掉 /api 后缀）
+    const origin = serverUrl.replace(/\/api$/, '');
+    return process.env.NODE_ENV === 'production'
+      ? [origin]
+      : [origin, 'http://localhost:8080', 'http://127.0.0.1:8080'];
+  },
   
   // 允许的图片域名白名单
   allowedImageOrigins: [
@@ -371,6 +375,80 @@ export function handleAPIError(error: unknown): NextResponse {
 }
 
 // ==========================================
+// 后端请求封装
+// ==========================================
+
+/**
+ * 创建后端请求选项
+ * 用于统一处理后端 API 请求的头信息和认证
+ */
+export function createBackendRequestOptions(
+  request: NextRequest,
+  options: RequestInit = {}
+): RequestInit {
+  const cookieHeader = request.headers.get('cookie') || '';
+  const sessionMatch = cookieHeader.match(/session_id=([^;]+)/);
+  const sessionId = sessionMatch ? sessionMatch[1] : '';
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+  
+  if (sessionId) {
+    headers['X-Session-Id'] = sessionId;
+  }
+  
+  // 获取当前域名作为 Origin
+  const origin = request.headers.get('origin') || 'http://localhost:5000';
+  headers['Origin'] = origin;
+  
+  return {
+    ...options,
+    headers,
+    credentials: 'include',
+  };
+}
+
+/**
+ * 后端请求封装
+ * 自动处理认证头和错误响应
+ */
+export async function backendRequest(
+  request: NextRequest,
+  path: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const backendUrl = getServerBackendUrl();
+  const url = `${backendUrl}${path}`;
+  const requestOptions = createBackendRequestOptions(request, options);
+  
+  return fetch(url, requestOptions);
+}
+
+/**
+ * 后端 JSON 请求封装
+ */
+export async function backendJsonRequest<T>(
+  request: NextRequest,
+  path: string,
+  options: RequestInit = {}
+): Promise<{ success: boolean; data?: T; error?: string }> {
+  try {
+    const response = await backendRequest(request, path, options);
+    const data = await response.json();
+    
+    if (response.ok) {
+      return { success: true, data };
+    } else {
+      return { success: false, error: data.message || data.error || '请求失败' };
+    }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : '网络错误' };
+  }
+}
+
+// ==========================================
 // 日志工具
 // ==========================================
 
@@ -438,3 +516,200 @@ export function logRequest(
     },
   });
 }
+
+// ==========================================
+// 后端服务检测
+// ==========================================
+
+let backendAvailable: boolean | null = null;
+let lastCheckTime = 0;
+const CHECK_INTERVAL = 30000; // 30秒检查一次
+
+export async function isBackendAvailable(requestHost?: string): Promise<boolean> {
+  const now = Date.now();
+  
+  // 使用缓存结果（30秒内）
+  if (backendAvailable !== null && (now - lastCheckTime) < CHECK_INTERVAL) {
+    return backendAvailable;
+  }
+  
+  try {
+    const apiUrl = getServerBackendUrl();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    
+    const response = await fetch(`${apiUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    
+    clearTimeout(timeoutId);
+    backendAvailable = response.ok;
+    lastCheckTime = now;
+    return backendAvailable;
+  } catch {
+    backendAvailable = false;
+    lastCheckTime = now;
+    return false;
+  }
+}
+
+// ==========================================
+// FormData 请求封装
+// ==========================================
+
+export async function backendFetchFormData(
+  request: NextRequest,
+  path: string,
+  formData: FormData
+): Promise<Response> {
+  const backendUrl = getServerBackendUrl();
+  const url = `${backendUrl}${path}`;
+  
+  const cookieHeader = request.headers.get('cookie') || '';
+  const sessionMatch = cookieHeader.match(/session_id=([^;]+)/);
+  const sessionId = sessionMatch ? sessionMatch[1] : '';
+  
+  const headers: HeadersInit = {};
+  if (sessionId) {
+    headers['X-Session-Id'] = sessionId;
+  }
+  
+  const origin = request.headers.get('origin') || 'http://localhost:5000';
+  headers['Origin'] = origin;
+  
+  return fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  });
+}
+
+// ==========================================
+// API 封装对象（兼容旧代码）
+// ==========================================
+
+export const imageApi = {
+  async list(params?: Record<string, string | number | boolean>): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+    }
+    return fetch(`${backendUrl}/images?${searchParams.toString()}`);
+  },
+  
+  async get(id: string): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/${id}`);
+  },
+  
+  async upload(formData: FormData): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  
+  async delete(id: string): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/${id}`, { method: 'DELETE' });
+  },
+  
+  async batchDelete(ids: string[]): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/batch`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', ids }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+  
+  async classify(imageId: string, albumId: string): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/classify`, {
+      method: 'POST',
+      body: JSON.stringify({ imageId, albumId }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+  
+  async getTags(): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/tags`);
+  },
+};
+
+export const categoryApi = {
+  async list(): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/category`);
+  },
+  
+  async get(category: string): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/images/category/${category}`);
+  },
+};
+
+export const aiApi = {
+  async recognize(imageUrl: string): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/ai/recognize`, {
+      method: 'POST',
+      body: JSON.stringify({ imageUrl }),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+};
+
+export const userApi = {
+  async getProfile(): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/user/profile`);
+  },
+  
+  async updateProfile(data: Record<string, unknown>): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/user/profile`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+  
+  async getSettings(): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/user/settings`);
+  },
+  
+  async updateSettings(data: Record<string, unknown>): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/user/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' },
+    });
+  },
+  
+  async getNotifications(): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/notifications`);
+  },
+  
+  async markNotificationRead(id: string): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/notifications/${id}/read`, { method: 'POST' });
+  },
+  
+  async markAllNotificationsRead(): Promise<Response> {
+    const backendUrl = getServerBackendUrl();
+    return fetch(`${backendUrl}/notifications/read-all`, { method: 'POST' });
+  },
+};

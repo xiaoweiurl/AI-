@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
-import { getServerBackendUrl } from '@/lib/config/backend-url';
+import { backendFetch } from '@/lib/backend-proxy';
+
+// 后端静态资源 URL
+const BACKEND_STATIC_URL = process.env.NEXT_PUBLIC_BACKEND_STATIC_URL || 'http://localhost:8080';
 
 /**
  * 图片文件代理 - 用于解决跨域和认证问题
@@ -13,14 +15,15 @@ export async function GET(
     const { id } = await params;
     const cookieHeader = request.headers.get('cookie') || '';
     const sessionId = request.headers.get('x-session-id') || '';
-    
-    // 动态获取后端 URL
-    const BACKEND_API_URL = getServerBackendUrl();
-    const BACKEND_STATIC_URL = BACKEND_API_URL.replace(/\/api$/, '');
 
     // 首先获取图片详情
-    const detailResponse = await backendRequest(request, `/images/${id}`, {
-      method: 'GET'});
+    const detailResponse = await backendFetch(`/images/${id}`, {
+      method: 'GET',
+      requestHeaders: { 
+        cookie: cookieHeader,
+        'X-Session-Id': sessionId,
+      },
+    });
 
     if (!detailResponse.ok) {
       return NextResponse.json(

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -71,9 +71,13 @@ export async function POST(request: NextRequest) {
     
     console.log('[API] 异步批量下载请求:', body);
     
-    const response = await backendRequest(request, '/images/batch-download/tasks', {
+    const response = await backendFetch('/images/batch-download/tasks', {
       method: 'POST',
-      body: body});
+      body: body,
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
     
     const data = await response.json();
     console.log('[API] 异步批量下载响应:', data);
@@ -125,8 +129,12 @@ export async function GET(request: NextRequest) {
 
     console.log('[API] 查询任务进度, taskId:', taskId);
 
-    const response = await backendRequest(request, `/images/batch-download/tasks/${taskId}`, {
-      method: 'GET'});
+    const response = await backendFetch(`/images/batch-download/tasks/${taskId}`, {
+      method: 'GET',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     const data = await response.json();
     console.log('[API] 查询任务进度响应:', data);

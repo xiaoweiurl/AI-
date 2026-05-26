@@ -24,7 +24,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,8 +33,10 @@ export async function GET(request: NextRequest) {
     const cookieHeader = request.headers.get('cookie') || '';
 
     // 转发请求到后端 Java API
-    const response = await backendRequest(request, `/dashboard/hot-resources?limit=${limit}`, {
-      method: 'GET'});
+    const response = await backendFetch(`/dashboard/hot-resources?limit=${limit}`, {
+      method: 'GET',
+      requestHeaders: { cookie: cookieHeader },
+    });
 
     if (response.ok) {
       const result = await response.json();

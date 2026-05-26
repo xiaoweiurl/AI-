@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerBackendUrl } from '@/lib/config/backend-url';
+
+// 后端 API 地址
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
+const BACKEND_BASE_URL = BACKEND_API_URL.replace(/\/api$/, '');
 
 /**
  * 文档文件代理 - 用于解决跨域和认证问题
@@ -12,9 +15,6 @@ export async function GET(
     const { id } = await params;
     const cookieHeader = request.headers.get('cookie') || '';
     const sessionId = request.headers.get('x-session-id') || '';
-    
-    const BACKEND_API_URL = getServerBackendUrl();
-    const BACKEND_BASE_URL = BACKEND_API_URL.replace(/\/api$/, '');
 
     // 获取文档详情
     const detailResponse = await fetch(`${BACKEND_API_URL}/documents/${id}`, {

@@ -11,7 +11,9 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Upload, X, Image as ImageIcon, Loader2, CheckCircle2 } from 'lucide-react';
-import { getBackendApiUrl } from '@/lib/config/backend-url';
+
+// 后端 API 基础 URL
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
 
 interface UploadDialogProps {
   open: boolean;
@@ -112,7 +114,7 @@ export default function UploadDialog({
         formData.append('files', uploadingFile.file); // 注意：后端 API 使用 'files' 参数
 
         // 直接调用 Java 后端 API
-        const response = await fetch(`${getBackendApiUrl()}/images/upload`, {
+        const response = await fetch(`${BACKEND_API_URL}/images/upload`, {
           method: 'POST',
           credentials: 'include',
           body: formData,

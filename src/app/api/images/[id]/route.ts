@@ -1,6 +1,5 @@
-import { getServerBackendUrl } from '@/lib/config/backend-url';
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, getBackendUrl } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -36,8 +35,10 @@ export async function GET(
     const cookieHeader = request.headers.get('cookie') || '';
 
     // 转发到后端 Java API
-    const response = await backendRequest(request, `/images/${id}`, {
-      method: 'GET'});
+    const response = await backendFetch(`/images/${id}`, {
+      method: 'GET',
+      requestHeaders: { cookie: cookieHeader },
+    });
 
     if (response.ok) {
       const result = await response.json();
@@ -51,7 +52,7 @@ export async function GET(
       { status: response.status }
     );
   } catch (error) {
-    const backendUrl = getServerBackendUrl();
+    const backendUrl = getBackendUrl();
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[Image Detail] Error:', errorMessage);
     return NextResponse.json(

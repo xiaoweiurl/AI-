@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { aiApi } from '@/lib/api-utils';
+import { aiApi, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -91,8 +90,9 @@ export async function POST(request: NextRequest) {
     }
     
     const response = await aiApi.recognize(imageUrls, useKeywordMatch, useVisionRecognition, requestHeaders);
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+    const result = await handleBackendResponse(response);
+    
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] AI 识别失败:', error);
     return NextResponse.json(

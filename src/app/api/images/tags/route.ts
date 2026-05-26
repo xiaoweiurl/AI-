@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { imageApi } from '@/lib/api-utils';
+import { imageApi } from '@/lib/backend-proxy';
 
 /**
  * @swagger

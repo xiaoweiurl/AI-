@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 interface AlbumUpdateRequest {
   name?: string;
@@ -45,12 +44,17 @@ export async function PUT(
     const body: AlbumUpdateRequest = await request.json();
     const cookieHeader = request.headers.get('cookie') || '';
 
-    const response = await backendRequest(request, `/albums/${id}`, {
+    const response = await backendFetch(`/albums/${id}`, {
       method: 'PUT',
       body: {
         name: body.name,
         description: body.description,
-        matchingConfig: body.matchingConfig}});
+        matchingConfig: body.matchingConfig,
+      },
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     const { result } = await safeParseResponse(response);
 
@@ -79,8 +83,12 @@ export async function DELETE(
     const { id } = await params;
     const cookieHeader = request.headers.get('cookie') || '';
 
-    const response = await backendRequest(request, `/albums/${id}`, {
-      method: 'DELETE'});
+    const response = await backendFetch(`/albums/${id}`, {
+      method: 'DELETE',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     const { result } = await safeParseResponse(response);
 

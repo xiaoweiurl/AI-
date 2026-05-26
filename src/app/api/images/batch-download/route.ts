@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 interface BatchDownloadRequest {
   images: Array<{
@@ -129,10 +128,13 @@ export async function POST(request: NextRequest) {
     console.log('[API] 验证通过，发送到后端，商品数量:', body.images.length);
 
     // 调用后端API（注意：backendFetch会自动序列化body，不要再次JSON.stringify）
-    const response = await backendRequest(request, '/images/batch-download', {
+    const response = await backendFetch('/images/batch-download', {
       method: 'POST',
       body: body,  // 直接传递对象，不要JSON.stringify
-      });
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     const result = await response.json();
 

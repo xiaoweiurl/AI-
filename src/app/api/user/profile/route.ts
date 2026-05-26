@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -162,8 +161,8 @@ export async function GET(request: NextRequest) {
       'cookie': request.headers.get('cookie'),
       'x-session-id': request.headers.get('x-session-id'),
     };
-    const response = await backendRequest(request, '/user', { requestHeaders: headers });
-    const result = await response.json();
+    const response = await backendFetch('/user', { requestHeaders: headers });
+    const result = await handleBackendResponse(response);
     
     if (result.success && result.data) {
       const user = result.data as Record<string, unknown>;
@@ -204,18 +203,21 @@ export async function PUT(request: NextRequest) {
     };
     const body = await request.json();
     
-    const response = await backendRequest(request, '/user/profile', {
+    const response = await backendFetch('/user/profile', {
       method: 'PUT',
-      body: JSON.stringify({
+      body: {
         username: body.username,
         nickname: body.nickname,
         email: body.email,
         avatar: body.avatar,
         bio: body.bio,
-        phone: body.phone}),
-      requestHeaders: headers});
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+        phone: body.phone,
+      },
+      requestHeaders: headers,
+    });
+    const result = await handleBackendResponse(response);
+    
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 更新用户资料失败:', error);
     return NextResponse.json(

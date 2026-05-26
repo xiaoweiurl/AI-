@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendFetchFormData } from '@/lib/api-utils';
+import { backendFetchFormData } from '@/lib/backend-proxy';
 
 /**
  * POST - 上传图片

@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -79,11 +78,12 @@ export async function POST(
       );
     }
     
-    const response = await backendRequest(request, `/admin/users/${id}/reset-password`, {
+    const response = await backendFetch(`/admin/users/${id}/reset-password`, {
       method: 'POST',
-      body: JSON.stringify({ newPassword }),
-      requestHeaders: headers});
-    const result = await response.json();
+      body: { newPassword },
+      requestHeaders: headers,
+    });
+    const result = await handleBackendResponse(response);
     
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (error) {

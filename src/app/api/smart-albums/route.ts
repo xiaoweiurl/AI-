@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 /**
  * 安全解析响应
@@ -156,8 +156,9 @@ export async function GET(request: NextRequest) {
     const cookieHeader = request.headers.get('cookie') || '';
 
     // TODO: 后端实现后，转发到后端 API
-    // const response = await backendRequest(request, '/smart-albums', {
-    //   // });
+    // const response = await backendFetch('/smart-albums', {
+    //   requestHeaders: { cookie: cookieHeader },
+    // });
     // const { result } = await safeParseResponse(response);
     // return NextResponse.json(result);
 
@@ -190,10 +191,11 @@ export async function POST(request: NextRequest) {
     }
 
     // TODO: 后端实现后，转发到后端 API
-    // const response = await backendRequest(request, '/smart-albums', {
+    // const response = await backendFetch('/smart-albums', {
     //   method: 'POST',
-    //   body: JSON.stringify({ name, description, matchingConfig }),
-    //   // });
+    //   body: { name, description, matchingConfig },
+    //   requestHeaders: { cookie: cookieHeader },
+    // });
     // const { result } = await safeParseResponse(response);
     // return NextResponse.json(result);
 

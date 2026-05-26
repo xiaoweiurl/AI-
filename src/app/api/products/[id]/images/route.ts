@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -62,8 +62,12 @@ export async function GET(
     console.log('[ProductImages] 获取商品所有图片，商品ID:', productId);
 
     // 调用后端 API
-    const response = await backendRequest(request, `/products/${productId}/images`, {
-      method: 'GET'});
+    const response = await backendFetch(`/products/${productId}/images`, {
+      method: 'GET',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     if (!response.ok) {
       const error = await response.text();

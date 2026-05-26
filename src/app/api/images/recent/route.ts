@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * GET - 获取最近上传的图片（7天内）
@@ -16,8 +15,8 @@ export async function GET(request: NextRequest) {
       cookie: cookieHeader,
     };
     
-    const response = await backendRequest(request, `/images/recent?page=${page}&pageSize=${pageSize}`, { requestHeaders });
-    const result = await response.json();
+    const response = await backendFetch(`/images/recent?page=${page}&pageSize=${pageSize}`, { requestHeaders });
+    const result = await handleBackendResponse(response);
     
     if (result.success && result.data) {
       const data = result.data as Record<string, unknown>;
@@ -32,7 +31,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    return NextResponse.json(result, { status: response.status });
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 获取最近上传失败:', error);
     return NextResponse.json(

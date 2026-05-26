@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { categoryApi } from '@/lib/api-utils';
+import { categoryApi, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * GET - 获取所有分类
@@ -13,7 +12,7 @@ export async function GET(request: NextRequest) {
       cookie: cookieHeader,
     };
     const response = await categoryApi.list(requestHeaders);
-    const result = await response.json();
+    const result = await handleBackendResponse(response);
     
     if (result.success && result.data) {
       // 转换分类数据格式
@@ -32,7 +31,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    return NextResponse.json(result, { status: response.status });
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 获取分类列表失败:', error);
     return NextResponse.json(

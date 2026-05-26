@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse, isBackendAvailable } from '@/lib/backend-proxy';
 import { loginSchema } from '@/lib/api-schemas';
 
 /**
@@ -55,27 +55,35 @@ import { loginSchema } from '@/lib/api-schemas';
 
 export async function GET(request: NextRequest) {
   try {
+    // 检查后端是否可用
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      console.error('[API] 后端服务不可用');
+      return NextResponse.json({
+        success: false,
+        error: '后端服务不可用，请稍后重试',
+      }, { status: 503 });
+    }
+    
     // 从 cookie 获取 session_id
     const cookieHeader = request.headers.get('cookie') || '';
     const sessionId = extractSessionIdFromCookie(cookieHeader);
     console.log('[API] 验证会话，sessionId:', sessionId?.substring(0, 8) + '...');
     
     // 调用后端验证会话
-    const response = await backendRequest(request, '/auth/session');
+    const response = await backendFetch('/auth/session', {
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
     
     console.log('[API] 验证会话，后端响应状态:', response.status);
     
-    if (!response.ok) {
-      return NextResponse.json({
-        success: false,
-        error: '会话无效或已过期',
-      }, { status: 401 });
-    }
-    
-    const result = await response.json();
+    const result = await handleBackendResponse(response);
     console.log('[API] 验证会话，结果:', result);
     
-    return NextResponse.json(result, { status: 200 });
+    return NextResponse.json(result, { status: result.success ? 200 : 401 });
   } catch (error) {
     console.error('[API] 验证会话失败:', error);
     return NextResponse.json(
@@ -109,10 +117,21 @@ export async function POST(request: NextRequest) {
     
     const { username, password, rememberMe } = validation.data;
     
+    // 检查后端是否可用
+    const backendAvailable = await isBackendAvailable();
+    
+    if (!backendAvailable) {
+      console.error('[API] 后端服务不可用');
+      return NextResponse.json({
+        success: false,
+        error: '后端服务不可用，请稍后重试',
+      }, { status: 503 });
+    }
+    
     // 调用后端登录
-    const response = await backendRequest(request, '/auth/login', {
+    const response = await backendFetch('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password, rememberMe }),
+      body: { username, password, rememberMe },
     });
     
     // 打印后端响应信息
@@ -141,7 +160,7 @@ export async function POST(request: NextRequest) {
       console.log('[API] 即将设置 cookie，domain:', undefined, 'sameSite:', 'lax');
       
       // 创建响应并直接设置 cookie
-      const apiResponse = NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         message: result.message || '登录成功',
         data: {
@@ -150,35 +169,27 @@ export async function POST(request: NextRequest) {
         },
       });
       
-      // 判断是否使用 HTTPS（包括 ngrok）
-      const requestUrl = new URL(request.url);
-      const isHttps = requestUrl.protocol === 'https:' || 
-                      request.headers.get('x-forwarded-proto') === 'https' ||
-                      request.headers.get('host')?.includes('ngrok');
-      
-      console.log('[API] 协议检测 - isHttps:', isHttps, 'host:', request.headers.get('host'));
-      
       // 设置 session cookie（使用 ResponseCookies API）
-      apiResponse.cookies.set('session_id', finalSessionId, {
+      response.cookies.set('session_id', finalSessionId, {
         httpOnly: true,
-        secure: isHttps, // HTTPS 或 ngrok 时必须设置 Secure
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60,
         path: '/',
       });
       
       // 打印 cookie 设置后的响应头
-      const setCookieHeader = apiResponse.headers.get('set-cookie');
+      const setCookieHeader = response.headers.get('set-cookie');
       console.log('[API] 设置的 Set-Cookie 头:', setCookieHeader);
       
       // 如果响应头为空，手动添加
       if (!setCookieHeader) {
         const cookieValue = `session_id=${finalSessionId}; Path=/; HttpOnly; Max-Age=${rememberMe ? 7 * 24 * 60 * 60 : 24 * 60 * 60}; SameSite=Lax`;
-        apiResponse.headers.append('Set-Cookie', cookieValue);
+        response.headers.append('Set-Cookie', cookieValue);
         console.log('[API] 手动添加 Set-Cookie:', cookieValue);
       }
       
-      return apiResponse;
+      return response;
     }
     
     // 处理后端返回的错误
@@ -195,10 +206,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function DELETE(request: NextRequest) {
+export async function DELETE() {
   // 调用后端登出
   try {
-    await backendRequest(request, '/auth/logout', { method: 'POST' });
+    await backendFetch('/auth/logout', { method: 'POST' });
   } catch (error) {
     console.error('[API] 登出失败:', error);
   }

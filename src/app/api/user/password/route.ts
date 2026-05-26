@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -120,14 +119,16 @@ export async function PUT(request: NextRequest) {
       );
     }
     
-    const response = await backendRequest(request, '/user/password', {
+    const response = await backendFetch('/user/password', {
       method: 'PUT',
-      body: JSON.stringify({
+      body: {
         currentPassword,
         newPassword,
-        confirmPassword}),
-      requestHeaders: headers});
-    const result = await response.json();
+        confirmPassword,
+      },
+      requestHeaders: headers,
+    });
+    const result = await handleBackendResponse(response);
     
     return NextResponse.json(result, { status: result.success ? 200 : 400 });
   } catch (error) {

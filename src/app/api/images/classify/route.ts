@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { imageApi } from '@/lib/api-utils';
+import { imageApi, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -80,8 +79,9 @@ export async function POST(request: NextRequest) {
     }
     
     const response = await imageApi.classify(imageIds, targetCategory, useAI, requestHeaders);
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+    const result = await handleBackendResponse(response);
+    
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 分类图片失败:', error);
     return NextResponse.json(

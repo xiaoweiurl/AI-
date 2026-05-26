@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 // 设置最大执行时间为 10 分钟（适用于大文件导出）
 export const maxDuration = 600;
@@ -12,8 +12,12 @@ export async function GET(
     const { albumId } = await params;
     const cookieHeader = request.headers.get('cookie') || '';
 
-    const response = await backendRequest(request, `/images/export/${albumId}`, {
-      method: 'GET'});
+    const response = await backendFetch(`/images/export/${albumId}`, {
+      method: 'GET',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

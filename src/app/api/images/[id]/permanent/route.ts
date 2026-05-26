@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * DELETE - 永久删除图片
@@ -13,10 +13,15 @@ export async function DELETE(
     const { id } = await params;
     const cookieHeader = request.headers.get('cookie') || '';
     
-    const response = await backendRequest(request, `/images/${id}/permanent`, {
-      method: 'DELETE'});
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+    const response = await backendFetch(`/images/${id}/permanent`, {
+      method: 'DELETE',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
+    const result = await handleBackendResponse(response);
+    
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 永久删除图片失败:', error);
     return NextResponse.json(

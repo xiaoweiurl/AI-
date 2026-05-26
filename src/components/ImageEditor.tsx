@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import { X, Loader2, Download, RotateCcw, RotateCw, Maximize, Minimize } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ImageItem } from './ImageCard';
-import { getClientBackendUrl } from '@/lib/config/backend-url';
 
 // 导入 TUI Image Editor 样式
 import 'tui-image-editor/dist/tui-image-editor.css';
@@ -48,13 +47,13 @@ export default function ImageEditor({ image, onClose, onSave }: ImageEditorProps
     
     // 如果是相对路径（/uploads/xxx），拼接后端 API 地址（去掉 /api 后缀）
     if (url.startsWith('/uploads/')) {
-      const backendUrl = getClientBackendUrl().replace(/\/api$/, '');
+      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
       return `${backendUrl}${url}`;
     }
     
     // 其他相对路径
     if (url.startsWith('/')) {
-      const backendUrl = getClientBackendUrl().replace(/\/api$/, '');
+      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
       return `${backendUrl}${url}`;
     }
     

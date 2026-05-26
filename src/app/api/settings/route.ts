@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -118,8 +117,8 @@ export async function GET(request: NextRequest) {
   const key = searchParams.get('key');
 
   try {
-    const response = await backendRequest(request, '/settings', { requestHeaders });
-    const result = await response.json();
+    const response = await backendFetch('/settings', { requestHeaders });
+    const result = await handleBackendResponse(response);
     
     if (result.success && result.data) {
       const data = result.data as Record<string, string>;
@@ -168,12 +167,13 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const response = await backendRequest(request, '/settings', {
+    const response = await backendFetch('/settings', {
       method: 'POST',
-      body: JSON.stringify({ key, value }),
-      requestHeaders});
+      body: { key, value },
+      requestHeaders,
+    });
     
-    const result = await response.json();
+    const result = await handleBackendResponse(response);
     
     if (result.success) {
       return NextResponse.json({
@@ -208,12 +208,13 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const response = await backendRequest(request, '/settings', {
+    const response = await backendFetch('/settings', {
       method: 'PUT',
       body: body,
-      requestHeaders});
+      requestHeaders,
+    });
     
-    const result = await response.json();
+    const result = await handleBackendResponse(response);
     
     if (result.success) {
       return NextResponse.json({

@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 // 设置最大执行时间为 10 分钟（适用于大文件导出）
 export const maxDuration = 600;
@@ -17,9 +16,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = await backendRequest(request, '/images/export/batch', {
+    const response = await backendFetch('/images/export/batch', {
       method: 'POST',
-      body: albumIds});
+      body: albumIds,
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

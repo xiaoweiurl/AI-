@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { imageApi } from '@/lib/api-utils';
+import { imageApi, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * GET - 筛选图片
@@ -34,9 +33,13 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    const response = await backendRequest(request, "/images/filter");
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+    const response = await imageApi.filter({
+      ...cleanParams as Parameters<typeof imageApi.filter>[0],
+      requestHeaders,
+    });
+    const result = await handleBackendResponse(response);
+    
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 筛选图片失败:', error);
     return NextResponse.json(

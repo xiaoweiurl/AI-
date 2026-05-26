@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest, isBackendAvailable } from '@/lib/api-utils';
+import { isBackendAvailable, backendFetch } from '@/lib/backend-proxy';
 
 // Mock 备份列表存储
 const mockBackups: unknown[] = [];
@@ -55,9 +55,11 @@ export async function GET(request: NextRequest) {
     // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await backendRequest(request, `/backup/list?page=${page}&pageSize=${pageSize}`, {
+    const response = await backendFetch(`/backup/list?page=${page}&pageSize=${pageSize}`, {
       headers: {
-        'X-Session-Id': sessionId || ''}});
+        'X-Session-Id': sessionId || '',
+      },
+    });
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
     // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await backendRequest(request, '/backup/create', {
+    const response = await backendFetch('/backup/create', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -142,10 +144,12 @@ export async function DELETE(request: NextRequest) {
     // 后端可用，调用后端 API
     const sessionId = request.cookies.get('session_id')?.value;
 
-    const response = await backendRequest(request, `/backup/${backupId}`, {
+    const response = await backendFetch(`/backup/${backupId}`, {
       method: 'DELETE',
       headers: {
-        'X-Session-Id': sessionId || ''}});
+        'X-Session-Id': sessionId || '',
+      },
+    });
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });

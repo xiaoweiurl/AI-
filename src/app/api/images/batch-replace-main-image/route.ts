@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 /**
  * 批量替换主图
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { imageIds } = body;
 
-        const response = await backendRequest(request, '/images/batch-replace-main-image', {
+        const response = await backendFetch('/images/batch-replace-main-image', {
             method: 'POST',
             headers: sessionId ? { 'X-Session-Id': sessionId } : undefined,
             body: JSON.stringify({ imageIds }),

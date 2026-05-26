@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -132,8 +131,8 @@ export async function GET(request: NextRequest) {
       cookie: cookieHeader,
     };
     
-    const response = await backendRequest(request, `/images/trash?page=${page}&pageSize=${pageSize}`, { requestHeaders });
-    const result = await response.json();
+    const response = await backendFetch(`/images/trash?page=${page}&pageSize=${pageSize}`, { requestHeaders });
+    const result = await handleBackendResponse(response);
     
     if (result.success && result.data) {
       const data = result.data as Record<string, unknown>;
@@ -148,7 +147,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    return NextResponse.json(result, { status: response.status });
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 获取回收站失败:', error);
     return NextResponse.json(
@@ -170,11 +169,16 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const response = await backendRequest(request, '/images/trash/restore', {
+    const response = await backendFetch('/images/trash/restore', {
       method: 'POST',
-      body: { imageIds }});
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+      body: { imageIds },
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
+    const result = await handleBackendResponse(response);
+    
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 恢复图片失败:', error);
     return NextResponse.json(
@@ -188,10 +192,15 @@ export async function DELETE(request: NextRequest) {
   try {
     const cookieHeader = request.headers.get('cookie') || '';
     
-    const response = await backendRequest(request, '/images/trash', {
-      method: 'DELETE'});
-    const result = await response.json();
-    return NextResponse.json(result, { status: response.status });
+    const response = await backendFetch('/images/trash', {
+      method: 'DELETE',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
+    const result = await handleBackendResponse(response);
+    
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 清空回收站失败:', error);
     return NextResponse.json(

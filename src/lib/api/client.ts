@@ -3,12 +3,8 @@
  * 用于连接 Java Spring Boot 后端
  */
 
-import { getClientBackendUrl } from '../config/backend-url';
-
-// 后端 API 基础 URL（动态获取）
-function getApiBaseUrl(): string {
-  return getClientBackendUrl();
-}
+// 后端 API 基础 URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 /**
  * 通用请求方法
@@ -17,7 +13,7 @@ async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${getApiBaseUrl()}${endpoint}`;
+  const url = `${API_BASE_URL}${endpoint}`;
   
   const defaultHeaders: HeadersInit = {
     'Content-Type': 'application/json',
@@ -76,7 +72,7 @@ export async function del<T>(endpoint: string): Promise<T> {
 }
 
 export async function upload<T>(endpoint: string, formData: FormData): Promise<T> {
-  const url = `${getApiBaseUrl()}${endpoint}`;
+  const url = `${API_BASE_URL}${endpoint}`;
   
   const headers: HeadersInit = {};
   
@@ -151,7 +147,7 @@ export const imageApi = {
     if (options?.albumId) formData.append('albumId', options.albumId);
     if (options?.tags) options.tags.forEach(tag => formData.append('tags', tag));
     
-    const url = `${getApiBaseUrl()}/images/upload`;
+    const url = `${API_BASE_URL}/images/upload`;
     const response = await fetch(url, {
       method: 'POST',
       body: formData,

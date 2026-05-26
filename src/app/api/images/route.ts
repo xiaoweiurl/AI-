@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { imageApi, backendFetchFormData } from '@/lib/api-utils';
+import { imageApi, backendFetchFormData } from '@/lib/backend-proxy';
 
 /**
  * 安全解析响应

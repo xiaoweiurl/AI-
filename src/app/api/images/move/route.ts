@@ -1,6 +1,5 @@
-// @ts-nocheck
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * POST - 移动图片
@@ -26,18 +25,22 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const response = await backendRequest(request, '/images/move', {
+    const response = await backendFetch('/images/move', {
       method: 'POST',
-      body: { imageIds, targetAlbumId }});
+      body: { imageIds, targetAlbumId },
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
     
     // 打印后端原始响应以便调试
     const responseText = await response.clone().text();
     console.log('[API] 移动图片，后端原始响应:', responseText);
     
-    const result = await response.json();
+    const result = await handleBackendResponse(response);
     console.log('[API] 移动图片，处理后的结果:', result);
     
-    return NextResponse.json(result, { status: response.status });
+    return NextResponse.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
     console.error('[API] 移动图片失败:', error);
     return NextResponse.json(

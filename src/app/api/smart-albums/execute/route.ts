@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch } from '@/lib/backend-proxy';
 
 /**
  * 安全解析响应
@@ -139,16 +139,18 @@ export async function POST(request: NextRequest) {
     }
 
     // TODO: 后端实现后，转发到后端 API
-    // const response = await backendRequest(request, '/smart-albums/execute', {
+    // const response = await backendFetch('/smart-albums/execute', {
     //   method: 'POST',
-    //   body: JSON.stringify({ albumId, matchingConfig: executeConfig, page, pageSize }),
-    //   // });
+    //   body: { albumId, matchingConfig: executeConfig, page, pageSize },
+    //   requestHeaders: { cookie: cookieHeader },
+    // });
     // const { result } = await safeParseResponse(response);
     // return NextResponse.json(result);
 
     // 方案2：获取所有图片，在前端执行匹配（当前实现）
-    const response = await backendRequest(request, `/images?page=1&pageSize=9999`, {
-      });
+    const response = await backendFetch(`/images?page=1&pageSize=9999`, {
+      requestHeaders: { cookie: cookieHeader },
+    });
 
     const { result } = await safeParseResponse(response);
 

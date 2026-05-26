@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { backendRequest } from '@/lib/api-utils';
+import { backendFetch, handleBackendResponse } from '@/lib/backend-proxy';
 
 /**
  * @swagger
@@ -61,11 +61,15 @@ export async function GET(
     console.log('[Products] 获取商品详情，商品ID:', productId);
 
     // 调用后端 API
-    const response = await backendRequest(request, `/products/${productId}`, {
-      method: 'GET'});
+    const response = await backendFetch(`/products/${productId}`, {
+      method: 'GET',
+      requestHeaders: {
+        cookie: cookieHeader,
+      },
+    });
 
     // 使用统一的响应处理函数
-    const result = await response.json();
+    const result = await handleBackendResponse(response);
 
     if (!result.success) {
       console.error('[Products] 获取商品详情失败:', result.error);

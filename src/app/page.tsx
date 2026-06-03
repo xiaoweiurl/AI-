@@ -647,13 +647,24 @@ export default function Home() {
         
         // 优先从筛选面板获取
         if (filterState.albumFilter && filterState.albumFilter !== 'all') {
-          albumId = filterState.albumFilter;
+          // 检查是否是截断ID，尝试匹配完整ID
+          const filterAlbumId = filterState.albumFilter;
+          const matchingAlbum = albums.find(a => a.id === filterAlbumId || a.id.startsWith(filterAlbumId));
+          albumId = matchingAlbum ? matchingAlbum.id : filterAlbumId;
         }
         // 其次从侧边栏获取
-        else if (activeMenuItem.startsWith('album-') || albums.some(a => a.id === activeMenuItem)) {
-          albumId = activeMenuItem.startsWith('album-') 
-            ? activeMenuItem.replace('album-', '') 
-            : activeMenuItem;
+        else if (activeMenuItem) {
+          if (activeMenuItem.startsWith('album-')) {
+            albumId = activeMenuItem.replace('album-', '');
+          } else if (albums.some(a => a.id === activeMenuItem)) {
+            albumId = activeMenuItem;
+          } else {
+            // 尝试匹配截断ID：数据库中可能存储完整UUID，但前端传递的是截断格式
+            const matchingAlbum = albums.find(a => a.id.startsWith(activeMenuItem) || a.id === activeMenuItem);
+            if (matchingAlbum) {
+              albumId = matchingAlbum.id; // 使用完整ID
+            }
+          }
         }
         
         if (albumId) {

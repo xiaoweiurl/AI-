@@ -28,7 +28,10 @@ public class CreateNotificationRequest {
     
     @Schema(description = "关联资源ID（如图片ID、相册ID）")
     private String resourceId;
-    
+
+    @Schema(description = "目标ID（可选，兼容字段）")
+    private String targetId;
+
     @Schema(description = "附加数据（JSON格式）")
     private String data;
 }

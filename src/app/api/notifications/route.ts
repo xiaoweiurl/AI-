@@ -50,9 +50,10 @@ export async function GET(request: NextRequest) {
 
     // 尝试调用后端
     try {
+      const cookieHeader = request.headers.get('cookie') || '';
       const url = new URL('/user/notifications', getBackendUrl());
       url.searchParams.set('limit', limit);
-      const response = await userApi.getNotifications(request);
+      const response = await userApi.getNotifications({ cookie: cookieHeader });
       const { result, ok } = await safeParseResponse(response as any);
       if (ok) {
         return NextResponse.json(result);
@@ -95,7 +96,8 @@ export async function POST(request: NextRequest) {
 
     // 尝试调用后端
     try {
-      const response = await userApi.createNotification(request, notification);
+      const cookieHeader = request.headers.get('cookie') || '';
+      const response = await userApi.createNotification(notification, { cookie: cookieHeader });
       const { result, ok } = await safeParseResponse(response as any);
       if (ok) {
         return NextResponse.json(result);
@@ -142,7 +144,17 @@ export async function PATCH(request: NextRequest) {
 
     // 尝试调用后端
     try {
-      const response = await userApi.handleNotificationAction(request, action, notificationId);
+      const cookieHeader = request.headers.get('cookie') || '';
+      const requestHeaders = { cookie: cookieHeader };
+      let response: Response;
+      if (action === 'markRead' && notificationId) {
+        response = await userApi.markNotificationRead(notificationId, requestHeaders);
+      } else if (action === 'markAllRead') {
+        response = await userApi.markAllNotificationsRead(requestHeaders);
+      } else {
+        // clearRead 等其他操作不支持
+        throw new Error('不支持的操作');
+      }
       const { result, ok } = await safeParseResponse(response as any);
       if (ok) {
         return NextResponse.json(result);

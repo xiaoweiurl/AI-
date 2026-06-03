@@ -100,7 +100,7 @@ function buildAlbumHierarchy(albums: AlbumInfo[]): MenuItem[] {
       ? album.name.split('/').pop() || album.name 
       : album.name;
     return {
-      id: album.id,
+      id: `album-${album.id}`, // 使用 album- 前缀，确保能正确识别相册ID
       label: displayName,
       icon: Image as React.ElementType, // 图标组件
       count: album.count,

@@ -810,20 +810,4 @@ public class ImageController {
             }
         }
     }
-
-    /**
-     * 创建通知
-     */
-    private void createNotification(String type, String title, String content, String resourceId) {
-        try {
-            com.imagemanager.dto.NotificationDTO request = new com.imagemanager.dto.NotificationDTO();
-            request.setType(type);
-            request.setTitle(title);
-            request.setContent(content);
-            request.setResourceId(resourceId);
-            userService.createNotification(request);
-        } catch (Exception e) {
-            log.warn("创建通知失败: {}", e.getMessage());
-        }
-    }
 }

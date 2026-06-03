@@ -231,6 +231,15 @@ public class ImageController {
             @Parameter(description = "图片ID") @PathVariable String id) {
         log.info("切换收藏状态：{}", id);
         Image image = imageService.toggleFavorite(id);
+        if (image != null) {
+            // 创建通知
+            createNotification(image.getFavorite() ? "image_favorite" : "image_unfavorite",
+                image.getFavorite() ? "收藏成功" : "取消收藏",
+                image.getFavorite()
+                    ? "图片 " + (image.getTitle() != null ? image.getTitle() : image.getOriginalName()) + " 已加入收藏"
+                    : "图片 " + (image.getTitle() != null ? image.getTitle() : image.getOriginalName()) + " 已取消收藏",
+                image.getId());
+        }
         return ApiResponse.success(image.getFavorite() ? "已收藏" : "已取消收藏", image);
     }
     

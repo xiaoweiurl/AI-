@@ -133,7 +133,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<Notification> getNotifications() {
         log.info("获取通知列表");
-        return notificationRepository.findByUserIdOrderByCreatedAtDesc("user-1");
+        String currentUserId = SessionUtil.getCurrentUserId();
+        if (currentUserId == null) {
+            currentUserId = "user-1"; // 降级默认
+        }
+        return notificationRepository.findByUserIdOrderByCreatedAtDesc(currentUserId);
     }
     
     @Override

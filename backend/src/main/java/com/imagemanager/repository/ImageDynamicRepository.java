@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigInteger;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -685,7 +684,7 @@ public class ImageDynamicRepository {
 
             String countSQL = String.format("SELECT COUNT(*) FROM %s WHERE deleted = false", tableName);
             Query query = entityManager.createNativeQuery(countSQL);
-            BigInteger result = (BigInteger) query.getSingleResult();
+            long result = ((Number) query.getSingleResult()).longValue();
             return result.longValue();
         } catch (Exception e) {
             log.error("统计用户图片数量失败", e);
@@ -706,7 +705,7 @@ public class ImageDynamicRepository {
 
             String countSQL = String.format("SELECT COUNT(*) FROM %s WHERE deleted = false AND is_main_image = true", tableName);
             Query query = entityManager.createNativeQuery(countSQL);
-            BigInteger result = (BigInteger) query.getSingleResult();
+            long result = ((Number) query.getSingleResult()).longValue();
             return result.longValue();
         } catch (Exception e) {
             log.error("统计用户主图数量失败", e);
@@ -729,7 +728,7 @@ public class ImageDynamicRepository {
                 try {
                     String countSQL = String.format("SELECT COUNT(*) FROM %s WHERE deleted = false", tableName);
                     Query query = entityManager.createNativeQuery(countSQL);
-                    BigInteger result = (BigInteger) query.getSingleResult();
+                    long result = ((Number) query.getSingleResult()).longValue();
                     total += result.longValue();
                 } catch (Exception e) {
                     log.warn("统计表 {} 图片数量失败", tableName);
@@ -757,7 +756,7 @@ public class ImageDynamicRepository {
                 try {
                     String countSQL = String.format("SELECT COUNT(*) FROM %s WHERE deleted = false AND is_main_image = true", tableName);
                     Query query = entityManager.createNativeQuery(countSQL);
-                    BigInteger result = (BigInteger) query.getSingleResult();
+                    long result = ((Number) query.getSingleResult()).longValue();
                     total += result.longValue();
                 } catch (Exception e) {
                     log.warn("统计表 {} 主图数量失败", tableName);
@@ -819,7 +818,7 @@ public class ImageDynamicRepository {
             for (Map.Entry<Integer, Object> entry : params.entrySet()) {
                 countQuery.setParameter(entry.getKey(), entry.getValue());
             }
-            BigInteger total = (BigInteger) countQuery.getSingleResult();
+            long total = ((Number) countQuery.getSingleResult()).longValue();
 
             // 分页
             int page = request.getPage() != null ? request.getPage() : 1;
@@ -886,7 +885,7 @@ public class ImageDynamicRepository {
             // 查询总数
             String countSQL = String.format("SELECT COUNT(*) FROM (%s) AS combined", unionSQL);
             Query countQuery = entityManager.createNativeQuery(countSQL);
-            BigInteger total = (BigInteger) countQuery.getSingleResult();
+            long total = ((Number) countQuery.getSingleResult()).longValue();
 
             // 分页
             int page = request.getPage() != null ? request.getPage() : 1;

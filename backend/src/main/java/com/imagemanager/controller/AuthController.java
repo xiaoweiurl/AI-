@@ -50,7 +50,7 @@ public class AuthController {
             log.info("登录成功，sessionId: {}", sessionId);
             
             // 登录成功后，确保用户图片表存在
-            String userId = loginResponse.getUserInfo().getId();
+            String userId = loginResponse.getUser().getId();
             if (userId != null && !userId.isEmpty()) {
                 boolean tableCreated = imageTableService.createUserImageTable(userId);
                 log.info("用户图片表检查完成: userId={}, tableCreated={}", userId, tableCreated);

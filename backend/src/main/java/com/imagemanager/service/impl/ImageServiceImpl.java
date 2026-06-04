@@ -142,8 +142,8 @@ public class ImageServiceImpl implements ImageService {
     public PageResponse<Image> queryImages(ImageQueryRequest request) {
         log.info("查询图片列表，参数：{}", request);
 
-        // 获取当前用户ID
-        String currentUserId = com.imagemanager.util.SessionUtil.getCurrentUserId();
+        // 获取当前用户ID（final，lambda 需要捕获）
+        final String currentUserId = com.imagemanager.util.SessionUtil.getCurrentUserId();
         log.info("数据隔离检查：currentUserId={}, onlyMine={}", currentUserId, request.getOnlyMine());
 
         // 动态表查询模式
@@ -293,8 +293,7 @@ public class ImageServiceImpl implements ImageService {
             final String finalKeyword = request.getKeyword();
             final Boolean finalFavorite = request.getFavorite();
             
-            // 数据隔离：获取当前用户ID
-            final String currentUserId = com.imagemanager.util.SessionUtil.getCurrentUserId();
+            // 数据隔离：使用方法开头已声明的 currentUserId
             final Boolean finalOnlyMine = request.getOnlyMine();
             log.info("数据隔离检查：currentUserId={}, onlyMine={}", currentUserId, finalOnlyMine);
             

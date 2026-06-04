@@ -156,7 +156,7 @@ public class ImageServiceImpl implements ImageService {
             }
 
             if (request.getOnlyMine() != null && request.getOnlyMine()) {
-                // 我的知识库 - 只查询当前用户的动态表
+                // 我的知识库 - 只查询当前用户上传的文件/图片（动态表）
                 log.info("使用动态表查询【我的知识库】, userId={}", currentUserId);
                 request.setUserId(currentUserId);
                 return imageDynamicRepository.queryMyImages(request, currentUserId);
@@ -168,34 +168,34 @@ public class ImageServiceImpl implements ImageService {
                 return imageDynamicRepository.queryOtherUsersImages(request, currentUserId);
             }
 
-            // 收藏夹
+            // 收藏夹 - 查当前用户动态表
             if (request.getFavorite() != null && request.getFavorite()) {
                 log.info("使用动态表查询【收藏夹】, userId={}", currentUserId);
                 request.setUserId(currentUserId);
                 return imageDynamicRepository.queryFavorites(request, currentUserId);
             }
 
-            // 回收站
+            // 回收站 - 查当前用户动态表
             if (request.getDeleted() != null && request.getDeleted()) {
                 log.info("使用动态表查询【回收站】, userId={}", currentUserId);
                 request.setUserId(currentUserId);
                 return imageDynamicRepository.queryTrash(request, currentUserId);
             }
 
-            // 相册查询
+            // 相册查询 - 查当前用户动态表
             if (request.getAlbumId() != null && !request.getAlbumId().isEmpty()) {
                 log.info("使用动态表查询【相册图片】, albumId={}, userId={}", request.getAlbumId(), currentUserId);
                 request.setUserId(currentUserId);
                 return imageDynamicRepository.queryAlbumImages(request.getAlbumId(), request, currentUserId);
             }
 
-            // 全部知识 - 只查当前用户的动态表
-            log.info("使用动态表查询【全部知识】, userId={}", currentUserId);
-            return imageDynamicRepository.queryAllImages(request, currentUserId);
+            // 全部知识 - 查询主表（共享数据，所有知识分类）
+            log.info("查询【全部知识】(主表), userId={}", currentUserId);
+            // fall through 到 JPA 主表查询
         }
 
-        // 降级：无用户ID时使用 JPA 查询
-        log.info("无用户ID，降级使用 JPA 查询");
+        // JPA 主表查询（全部知识 / 无用户ID降级）
+        log.info("使用 JPA 查询主表数据");
 
         // 构建排序
         String sortBy = request.getSortBy() != null ? request.getSortBy() : "createdAt";

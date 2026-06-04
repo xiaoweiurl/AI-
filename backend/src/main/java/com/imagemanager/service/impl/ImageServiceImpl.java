@@ -484,7 +484,7 @@ public class ImageServiceImpl implements ImageService {
             String tableName = imageTableService.getUserTableName(currentUserId);
             if (imageTableService.userImageTableExists(currentUserId)) {
                 try {
-                    imageDynamicRepository.save(tableName, image);
+                    imageDynamicRepository.save(image, currentUserId);
                     log.info("图片已保存到用户表: {}", tableName);
                 } catch (Exception e) {
                     log.warn("保存到用户表失败: {}", e.getMessage());

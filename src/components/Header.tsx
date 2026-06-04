@@ -176,8 +176,8 @@ export default function Header({
 
       {/* 右侧工具栏 */}
       <div className="flex items-center gap-3 ml-6">
-        {/* 批量替换主图按钮 */}
-        {onBatchReplaceMainImage && (
+        {/* 批量替换主图按钮 - 仅管理员可见 */}
+        {onBatchReplaceMainImage && currentUser?.role === 'admin' && (
           <Button
             variant="outline"
             size="sm"
@@ -253,7 +253,8 @@ export default function Header({
           <span className="hidden sm:inline">筛选</span>
         </Button>
 
-        {/* Excel批量上传按钮 */}
+        {/* Excel批量上传按钮 - 仅管理员可见 */}
+        {currentUser?.role === 'admin' && (
         <Button 
           variant="ghost" 
           size="sm" 
@@ -264,8 +265,10 @@ export default function Header({
           <FileSpreadsheet className="w-4 h-4" />
           <span className="hidden sm:inline">Excel导入</span>
         </Button>
+        )}
 
-        {/* 批量导出按钮 */}
+        {/* 批量导出按钮 - 仅管理员可见 */}
+        {currentUser?.role === 'admin' && (
         <Button 
           variant="ghost" 
           size="sm" 
@@ -282,6 +285,7 @@ export default function Header({
           <Download className="w-4 h-4" />
           <span className="hidden sm:inline">批量导出</span>
         </Button>
+        )}
 
         {/* 通知 */}
         <div className="relative">

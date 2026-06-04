@@ -47,4 +47,9 @@ public interface AuthService {
      * 更新用户设置
      */
     void updateUserSettings(String userId, UserSettings settings);
+
+    /**
+     * 删除用户所有会话
+     */
+    void deleteAllUserSessions(String userId);
 }

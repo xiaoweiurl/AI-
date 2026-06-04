@@ -437,4 +437,16 @@ public class AuthServiceImpl implements AuthService {
         log.info("更新用户设置：{}", userId);
         userSettingsMap.put(userId, settings);
     }
+
+    @Override
+    public void deleteAllUserSessions(String userId) {
+        log.info("删除用户所有会话：{}", userId);
+        sessions.entrySet().removeIf(entry -> {
+            if (entry.getValue().getUserInfo().getId().equals(userId)) {
+                sessionCount.decrementAndGet();
+                return true;
+            }
+            return false;
+        });
+    }
 }

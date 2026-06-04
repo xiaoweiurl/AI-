@@ -7,6 +7,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.postgresql.util.PGobject;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -108,7 +109,7 @@ public class ImageDynamicRepository {
                 "INSERT INTO %s (id, url, title, original_name, size, width, height, file_type, " +
                 "album_id, product_id, is_main_image, favorite, view_count, download_count, " +
                 "tags, deleted, deleted_at, created_at, updated_at, user_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
                 "ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, original_name = EXCLUDED.original_name, updated_at = EXCLUDED.updated_at",
                 tableName);
 
@@ -158,7 +159,7 @@ public class ImageDynamicRepository {
             String updateSQL = String.format(
                 "UPDATE %s SET url = ?, title = ?, original_name = ?, size = ?, width = ?, height = ?, " +
                 "file_type = ?, album_id = ?, product_id = ?, is_main_image = ?, " +
-                "favorite = ?, view_count = ?, download_count = ?, tags = ?::jsonb, " +
+                "favorite = ?, view_count = ?, download_count = ?, tags = ?, " +
                 "deleted = ?, deleted_at = ?, updated_at = ? WHERE id = ?",
                 tableName);
 
@@ -928,7 +929,11 @@ public class ImageDynamicRepository {
         query.setParameter(12, image.getFavorite() != null && image.getFavorite());
         query.setParameter(13, image.getViewCount() != null ? image.getViewCount() : 0);
         query.setParameter(14, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
-        query.setParameter(15, image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
+        // tags - 使用 PGobject 设置 JSONB 类型
+        PGobject tagsObj = new PGobject();
+        tagsObj.setType("jsonb");
+        tagsObj.setValue(image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
+        query.setParameter(15, tagsObj);
         query.setParameter(16, image.getDeleted() != null && image.getDeleted());
         query.setParameter(17, image.getDeletedAt() != null ? Timestamp.valueOf(image.getDeletedAt()) : null);
         query.setParameter(18, Timestamp.valueOf(image.getCreatedAt()));
@@ -953,7 +958,11 @@ public class ImageDynamicRepository {
         query.setParameter(11, image.getFavorite() != null && image.getFavorite());
         query.setParameter(12, image.getViewCount() != null ? image.getViewCount() : 0);
         query.setParameter(13, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
-        query.setParameter(14, image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
+        // tags - 使用 PGobject 设置 JSONB 类型
+        PGobject tagsObj2 = new PGobject();
+        tagsObj2.setType("jsonb");
+        tagsObj2.setValue(image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
+        query.setParameter(14, tagsObj2);
         query.setParameter(15, image.getDeleted() != null && image.getDeleted());
         query.setParameter(16, image.getDeletedAt() != null ? Timestamp.valueOf(image.getDeletedAt()) : null);
         query.setParameter(17, Timestamp.valueOf(LocalDateTime.now()));

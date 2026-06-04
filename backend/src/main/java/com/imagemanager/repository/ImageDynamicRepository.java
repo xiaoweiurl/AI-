@@ -163,18 +163,12 @@ public class ImageDynamicRepository {
                 paramIndex++;
             }
             
-            if (request.getFavorites() != null && request.getFavorites()) {
+            if (request.getFavorite() != null && request.getFavorite()) {
                 whereClause.append(" AND favorite = true");
             }
             
             if (request.getOnlyMainImage() != null && request.getOnlyMainImage()) {
                 whereClause.append(" AND is_main_image = true");
-            }
-            
-            if (request.getProductId() != null && !request.getProductId().isEmpty()) {
-                whereClause.append(" AND product_id = ?").append(paramIndex);
-                params.put(String.valueOf(paramIndex), request.getProductId());
-                paramIndex++;
             }
             
             // 排序
@@ -236,7 +230,7 @@ public class ImageDynamicRepository {
                 whereClause.append(" AND is_main_image = true");
             }
             
-            if (request.getFavorites() != null && request.getFavorites()) {
+            if (request.getFavorite() != null && request.getFavorite()) {
                 whereClause.append(" AND favorite = true");
             }
             

@@ -29,6 +29,7 @@ import {
   Filter,
   RefreshCw,
   ImagePlus,
+  Sparkles,
 } from 'lucide-react';
 
 export interface CurrentUser {
@@ -286,6 +287,24 @@ export default function Header({
           <span className="hidden sm:inline">批量导出</span>
         </Button>
         )}
+
+        {/* 盈云AI入口 */}
+        <a
+          href="https://www.yingyunai.com/login?redirect=/generate/text-to-image/new"
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(
+            "inline-flex items-center gap-2 px-4 py-2 rounded-lg",
+            "bg-gradient-to-r from-violet-500 to-purple-600",
+            "text-white text-sm font-medium",
+            "hover:from-violet-600 hover:to-purple-700",
+            "shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30",
+            "transition-all duration-200"
+          )}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>盈云AI</span>
+        </a>
 
         {/* 通知 */}
         <div className="relative">

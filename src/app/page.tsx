@@ -245,6 +245,7 @@ export default function Home() {
   const [editingSmartAlbum, setEditingSmartAlbum] = React.useState<SmartAlbumInfo | null>(null);
   const [isLoadingSmartAlbums, setIsLoadingSmartAlbums] = React.useState(false);
   const [trashCount, setTrashCount] = React.useState(0); // 回收站主图数量（从后端获取）
+  const [dynamicTableCount, setDynamicTableCount] = React.useState(0); // 动态表图片数量（我的知识库/二创中心）
   const [selectedAlbumIds, setSelectedAlbumIds] = React.useState<string[]>([]); // 当前选中的相册及其子相册 ID
   const [showBatchReplaceDialog, setShowBatchReplaceDialog] = React.useState(false); // 批量替换主图弹窗
 
@@ -753,7 +754,26 @@ export default function Home() {
       setLoadingMore(false);
     }
   }, [pageSize, activeMenuItem, filterState.albumFilter, filterState.tagFilter, filterState.dateFilter, filterState.typeFilter]);
-  
+
+  // 获取动态表图片数量（我的知识库/二创中心）
+  const fetchDynamicTableCount = React.useCallback(async () => {
+    if (!currentUser?.id) return;
+    try {
+      const isAdmin = currentUser?.role?.toLowerCase() === 'admin';
+      const params = isAdmin
+        ? `otherUsers=true&pageSize=1`
+        : `onlyMine=true&pageSize=1`;
+      const response = await backendFetch(`/images?${params}`);
+      const result = await response.json();
+      if (result.success || result.data) {
+        const total = result.data?.total || result.pagination?.total || 0;
+        setDynamicTableCount(total);
+      }
+    } catch {
+      // 静默处理
+    }
+  }, [currentUser]);
+
   // 获取标签列表
   const fetchTags = React.useCallback(async () => {
     try {
@@ -894,6 +914,7 @@ export default function Home() {
           await fetchImages();    // 获取当前视图数据
           await fetchTags();
           await fetchAlbums();    // 获取相册列表
+          await fetchDynamicTableCount(); // 获取动态表数量
         } else {
           // 未登录，跳转到登录页
           console.log('[Home] 会话验证失败');
@@ -1724,7 +1745,7 @@ export default function Home() {
         albums={statistics.albumStats}
         smartAlbums={smartAlbums}
         allImagesCount={statistics.allCount}
-        myImagesCount={statistics.myImagesCount}
+        myImagesCount={dynamicTableCount}
         favoritesCount={statistics.favoritesCount}
         recentCount={statistics.recentCount}
         trashCount={trashCount}

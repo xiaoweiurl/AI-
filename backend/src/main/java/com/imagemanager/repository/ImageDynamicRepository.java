@@ -242,7 +242,7 @@ public class ImageDynamicRepository {
             }
             return queryFromTable(tableName, request);
         } catch (Exception e) {
-            log.error("查询我的知识失败, 表: {}", tableName, e);
+            log.error("查询我的知识库失败, 表: {}", tableName, e);
             return emptyPage(request);
         }
     }

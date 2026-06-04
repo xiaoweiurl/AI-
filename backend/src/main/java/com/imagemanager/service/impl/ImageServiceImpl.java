@@ -156,8 +156,8 @@ public class ImageServiceImpl implements ImageService {
             }
 
             if (request.getOnlyMine() != null && request.getOnlyMine()) {
-                // 我的知识 - 只查询当前用户的动态表
-                log.info("使用动态表查询【我的知识】, userId={}", currentUserId);
+                // 我的知识库 - 只查询当前用户的动态表
+                log.info("使用动态表查询【我的知识库】, userId={}", currentUserId);
                 request.setUserId(currentUserId);
                 return imageDynamicRepository.queryMyImages(request, currentUserId);
             }

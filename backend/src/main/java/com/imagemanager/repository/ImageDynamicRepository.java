@@ -113,11 +113,13 @@ public class ImageDynamicRepository {
                 "ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, original_name = EXCLUDED.original_name, updated_at = EXCLUDED.updated_at",
                 tableName);
 
-            java.sql.Connection conn = entityManager.unwrap(java.sql.Connection.class);
-            try (java.sql.PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
-                setInsertParameters(pstmt, image);
-                pstmt.executeUpdate();
-            }
+            org.hibernate.Session hibernateSession = entityManager.unwrap(org.hibernate.Session.class);
+            hibernateSession.doWork(connection -> {
+                try (java.sql.PreparedStatement pstmt = connection.prepareStatement(insertSQL)) {
+                    setInsertParameters(pstmt, image);
+                    pstmt.executeUpdate();
+                }
+            });
 
             log.info("图片保存成功, 表: {}, id: {}", tableName, image.getId());
             return image;
@@ -164,11 +166,13 @@ public class ImageDynamicRepository {
                 "deleted = ?, deleted_at = ?, updated_at = ? WHERE id = ?",
                 tableName);
 
-            java.sql.Connection conn = entityManager.unwrap(java.sql.Connection.class);
-            try (java.sql.PreparedStatement pstmt = conn.prepareStatement(updateSQL)) {
-                setUpdateParameters(pstmt, image);
-                pstmt.executeUpdate();
-            }
+            org.hibernate.Session hibernateSession = entityManager.unwrap(org.hibernate.Session.class);
+            hibernateSession.doWork(connection -> {
+                try (java.sql.PreparedStatement pstmt = connection.prepareStatement(updateSQL)) {
+                    setUpdateParameters(pstmt, image);
+                    pstmt.executeUpdate();
+                }
+            });
 
             return image;
         } catch (Exception e) {

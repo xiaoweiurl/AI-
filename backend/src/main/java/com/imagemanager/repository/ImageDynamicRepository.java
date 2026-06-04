@@ -109,14 +109,15 @@ public class ImageDynamicRepository {
                 "INSERT INTO %s (id, url, title, original_name, size, width, height, file_type, " +
                 "album_id, product_id, is_main_image, favorite, view_count, download_count, " +
                 "tags, deleted, deleted_at, created_at, updated_at, user_id) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?, ?, ?) " +
                 "ON CONFLICT (id) DO UPDATE SET title = EXCLUDED.title, original_name = EXCLUDED.original_name, updated_at = EXCLUDED.updated_at",
                 tableName);
 
-            Query query = entityManager.createNativeQuery(insertSQL);
-            setInsertParameters(query, image);
-
-            query.executeUpdate();
+            java.sql.Connection conn = entityManager.unwrap(java.sql.Connection.class);
+            try (java.sql.PreparedStatement pstmt = conn.prepareStatement(insertSQL)) {
+                setInsertParameters(pstmt, image);
+                pstmt.executeUpdate();
+            }
 
             log.info("图片保存成功, 表: {}, id: {}", tableName, image.getId());
             return image;
@@ -163,10 +164,12 @@ public class ImageDynamicRepository {
                 "deleted = ?, deleted_at = ?, updated_at = ? WHERE id = ?",
                 tableName);
 
-            Query query = entityManager.createNativeQuery(updateSQL);
-            setUpdateParameters(query, image);
+            java.sql.Connection conn = entityManager.unwrap(java.sql.Connection.class);
+            try (java.sql.PreparedStatement pstmt = conn.prepareStatement(updateSQL)) {
+                setUpdateParameters(pstmt, image);
+                pstmt.executeUpdate();
+            }
 
-            query.executeUpdate();
             return image;
         } catch (Exception e) {
             log.error("更新图片失败, 表: {}, id: {}", tableName, image.getId(), e);
@@ -912,61 +915,55 @@ public class ImageDynamicRepository {
     }
 
     /**
-     * 设置 INSERT 参数
+     * 设置 INSERT 参数 (JDBC PreparedStatement)
      */
-    private void setInsertParameters(Query query, Image image) {
-        query.setParameter(1, image.getId());
-        query.setParameter(2, image.getUrl());
-        query.setParameter(3, image.getTitle());
-        query.setParameter(4, image.getOriginalName());
-        query.setParameter(5, image.getSize());
-        query.setParameter(6, image.getWidth());
-        query.setParameter(7, image.getHeight());
-        query.setParameter(8, image.getFileType());
-        query.setParameter(9, image.getAlbumId());
-        query.setParameter(10, image.getProductId());
-        query.setParameter(11, image.getIsMainImage() != null && image.getIsMainImage());
-        query.setParameter(12, image.getFavorite() != null && image.getFavorite());
-        query.setParameter(13, image.getViewCount() != null ? image.getViewCount() : 0);
-        query.setParameter(14, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
-        // tags - 使用 PGobject 设置 JSONB 类型
-        PGobject tagsObj = new PGobject();
-        tagsObj.setType("jsonb");
-        tagsObj.setValue(image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
-        query.setParameter(15, tagsObj);
-        query.setParameter(16, image.getDeleted() != null && image.getDeleted());
-        query.setParameter(17, image.getDeletedAt() != null ? Timestamp.valueOf(image.getDeletedAt()) : null);
-        query.setParameter(18, Timestamp.valueOf(image.getCreatedAt()));
-        query.setParameter(19, Timestamp.valueOf(image.getUpdatedAt()));
-        query.setParameter(20, image.getUserId());
+    private void setInsertParameters(java.sql.PreparedStatement pstmt, Image image) throws java.sql.SQLException {
+        pstmt.setString(1, image.getId());
+        pstmt.setString(2, image.getUrl());
+        pstmt.setString(3, image.getTitle());
+        pstmt.setString(4, image.getOriginalName());
+        pstmt.setLong(5, image.getSize() != null ? image.getSize() : 0L);
+        if (image.getWidth() != null) pstmt.setInt(6, image.getWidth()); else pstmt.setNull(6, java.sql.Types.INTEGER);
+        if (image.getHeight() != null) pstmt.setInt(7, image.getHeight()); else pstmt.setNull(7, java.sql.Types.INTEGER);
+        pstmt.setString(8, image.getFileType());
+        pstmt.setString(9, image.getAlbumId());
+        pstmt.setString(10, image.getProductId());
+        pstmt.setBoolean(11, image.getIsMainImage() != null && image.getIsMainImage());
+        pstmt.setBoolean(12, image.getFavorite() != null && image.getFavorite());
+        pstmt.setInt(13, image.getViewCount() != null ? image.getViewCount() : 0);
+        pstmt.setInt(14, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
+        // tags - 使用 setString + ?::jsonb 由数据库自动转换
+        pstmt.setString(15, image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
+        pstmt.setBoolean(16, image.getDeleted() != null && image.getDeleted());
+        if (image.getDeletedAt() != null) pstmt.setTimestamp(17, Timestamp.valueOf(image.getDeletedAt())); else pstmt.setNull(17, java.sql.Types.TIMESTAMP);
+        pstmt.setTimestamp(18, Timestamp.valueOf(image.getCreatedAt()));
+        pstmt.setTimestamp(19, Timestamp.valueOf(image.getUpdatedAt()));
+        pstmt.setString(20, image.getUserId());
     }
 
     /**
      * 设置 UPDATE 参数
      */
-    private void setUpdateParameters(Query query, Image image) {
-        query.setParameter(1, image.getUrl());
-        query.setParameter(2, image.getTitle());
-        query.setParameter(3, image.getOriginalName());
-        query.setParameter(4, image.getSize());
-        query.setParameter(5, image.getWidth());
-        query.setParameter(6, image.getHeight());
-        query.setParameter(7, image.getFileType());
-        query.setParameter(8, image.getAlbumId());
-        query.setParameter(9, image.getProductId());
-        query.setParameter(10, image.getIsMainImage() != null && image.getIsMainImage());
-        query.setParameter(11, image.getFavorite() != null && image.getFavorite());
-        query.setParameter(12, image.getViewCount() != null ? image.getViewCount() : 0);
-        query.setParameter(13, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
-        // tags - 使用 PGobject 设置 JSONB 类型
-        PGobject tagsObj2 = new PGobject();
-        tagsObj2.setType("jsonb");
-        tagsObj2.setValue(image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
-        query.setParameter(14, tagsObj2);
-        query.setParameter(15, image.getDeleted() != null && image.getDeleted());
-        query.setParameter(16, image.getDeletedAt() != null ? Timestamp.valueOf(image.getDeletedAt()) : null);
-        query.setParameter(17, Timestamp.valueOf(LocalDateTime.now()));
-        query.setParameter(18, image.getId());
+    private void setUpdateParameters(java.sql.PreparedStatement pstmt, Image image) throws java.sql.SQLException {
+        pstmt.setString(1, image.getUrl());
+        pstmt.setString(2, image.getTitle());
+        pstmt.setString(3, image.getOriginalName());
+        pstmt.setLong(4, image.getSize() != null ? image.getSize() : 0L);
+        if (image.getWidth() != null) pstmt.setInt(5, image.getWidth()); else pstmt.setNull(5, java.sql.Types.INTEGER);
+        if (image.getHeight() != null) pstmt.setInt(6, image.getHeight()); else pstmt.setNull(6, java.sql.Types.INTEGER);
+        pstmt.setString(7, image.getFileType());
+        pstmt.setString(8, image.getAlbumId());
+        pstmt.setString(9, image.getProductId());
+        pstmt.setBoolean(10, image.getIsMainImage() != null && image.getIsMainImage());
+        pstmt.setBoolean(11, image.getFavorite() != null && image.getFavorite());
+        pstmt.setInt(12, image.getViewCount() != null ? image.getViewCount() : 0);
+        pstmt.setInt(13, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
+        // tags - 使用 setString + ?::jsonb 由数据库自动转换
+        pstmt.setString(14, image.getTags() != null ? toJsonArray(image.getTags()) : "[]");
+        pstmt.setBoolean(15, image.getDeleted() != null && image.getDeleted());
+        if (image.getDeletedAt() != null) pstmt.setTimestamp(16, Timestamp.valueOf(image.getDeletedAt())); else pstmt.setNull(16, java.sql.Types.TIMESTAMP);
+        pstmt.setTimestamp(17, Timestamp.valueOf(LocalDateTime.now()));
+        pstmt.setString(18, image.getId());
     }
 
     /**

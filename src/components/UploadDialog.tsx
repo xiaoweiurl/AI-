@@ -114,9 +114,11 @@ export default function UploadDialog({
         const formData = new FormData();
         formData.append('file', uploadingFile.file); // 后端 @RequestParam("file")
 
-        // 直接请求后端（避免 Next.js API Route 代理时 localhost:8080 指向沙箱而非用户本地）
-        const response = await fetch(`${BACKEND_API_URL}/images/upload`, {
+        // 直接请求后端（绕过 Next.js 代理，避免服务端代理转发文件丢失）
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
+        const response = await fetch(`${BACKEND_URL}/images/upload`, {
           method: 'POST',
+          mode: 'cors',
           credentials: 'include',
           headers: {
             'X-Session-Id': getSessionId() || '',

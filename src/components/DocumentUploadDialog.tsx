@@ -249,13 +249,14 @@ export default function DocumentUploadDialog({
         formData.append('fileName', uploadingFile.file.name);
         formData.append('category', uploadingFile.category); // 传递分类
 
-        // 直接请求后端（避免 Next.js API Route 代理时 localhost:8080 指向沙箱而非用户本地）
-        const sessionId = getSessionId();
-        const response = await fetch(`${BACKEND_API_URL}/documents/upload`, {
+        // 直接请求后端（绕过 Next.js 代理，避免服务端代理转发文件丢失）
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
+        const response = await fetch(`${BACKEND_URL}/documents/upload`, {
           method: 'POST',
+          mode: 'cors',
           credentials: 'include',
           headers: {
-            'X-Session-Id': sessionId || '',
+            'X-Session-Id': getSessionId() || '',
           },
           body: formData,
         });

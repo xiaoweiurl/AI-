@@ -164,7 +164,7 @@ public class ImageServiceImpl implements ImageService {
                     return result;
                 } catch (Exception e) {
                     log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
-                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
+                    return PageResponse.of(Collections.<Image>emptyList(), 0L, request.getPage(), request.getPageSize());
                 }
             }
 
@@ -177,7 +177,7 @@ public class ImageServiceImpl implements ImageService {
                     return result;
                 } catch (Exception e) {
                     log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
-                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
+                    return PageResponse.of(Collections.<Image>emptyList(), 0L, request.getPage(), request.getPageSize());
                 }
             }
 
@@ -190,7 +190,7 @@ public class ImageServiceImpl implements ImageService {
                     return result;
                 } catch (Exception e) {
                     log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
-                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
+                    return PageResponse.of(Collections.<Image>emptyList(), 0L, request.getPage(), request.getPageSize());
                 }
             }
 
@@ -203,7 +203,7 @@ public class ImageServiceImpl implements ImageService {
                     return result;
                 } catch (Exception e) {
                     log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
-                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
+                    return PageResponse.of(Collections.<Image>emptyList(), 0L, request.getPage(), request.getPageSize());
                 }
             }
 

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigInteger;
 import java.sql.Timestamp;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -66,9 +67,10 @@ public class ImageDynamicRepository {
             query.setParameter(14, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
             query.setParameter(15, image.getTags() != null ? image.getTags().toString() : null);
             query.setParameter(16, image.getDeleted() != null && image.getDeleted());
-            query.setParameter(17, image.getDeletedAt());
-            query.setParameter(18, image.getCreatedAt() != null ? image.getCreatedAt() : new Timestamp(System.currentTimeMillis()));
-            query.setParameter(19, image.getUpdatedAt() != null ? image.getUpdatedAt() : new Timestamp(System.currentTimeMillis()));
+            query.setParameter(17, image.getDeletedAt() != null ? Timestamp.valueOf(image.getDeletedAt()) : null);
+            LocalDateTime now = LocalDateTime.now();
+            query.setParameter(18, image.getCreatedAt() != null ? Timestamp.valueOf(image.getCreatedAt()) : Timestamp.valueOf(now));
+            query.setParameter(19, image.getUpdatedAt() != null ? Timestamp.valueOf(image.getUpdatedAt()) : Timestamp.valueOf(now));
             query.setParameter(20, image.getUserId());
             
             query.executeUpdate();
@@ -111,8 +113,8 @@ public class ImageDynamicRepository {
             query.setParameter(13, image.getDownloadCount() != null ? image.getDownloadCount() : 0);
             query.setParameter(14, image.getTags() != null ? image.getTags().toString() : null);
             query.setParameter(15, image.getDeleted() != null && image.getDeleted());
-            query.setParameter(16, image.getDeletedAt());
-            query.setParameter(17, new Timestamp(System.currentTimeMillis()));
+            query.setParameter(16, image.getDeletedAt() != null ? Timestamp.valueOf(image.getDeletedAt()) : null);
+            query.setParameter(17, Timestamp.valueOf(LocalDateTime.now()));
             query.setParameter(18, image.getId());
             
             query.executeUpdate();
@@ -384,9 +386,9 @@ public class ImageDynamicRepository {
         image.setDownloadCount(row[13] != null ? ((Number) row[13]).intValue() : 0);
         // row[14] 是 tags JSONB，暂不处理
         image.setDeleted(row[15] != null && ((Boolean) row[15]));
-        image.setDeletedAt(row[16] != null ? (Timestamp) row[16] : null);
-        image.setCreatedAt(row[17] != null ? (Timestamp) row[17] : null);
-        image.setUpdatedAt(row[18] != null ? (Timestamp) row[18] : null);
+        image.setDeletedAt(row[16] != null ? ((Timestamp) row[16]).toLocalDateTime() : null);
+        image.setCreatedAt(row[17] != null ? ((Timestamp) row[17]).toLocalDateTime() : null);
+        image.setUpdatedAt(row[18] != null ? ((Timestamp) row[18]).toLocalDateTime() : null);
         image.setUserId((String) row[19]);
         // 存储来源表名（用于后续操作）
         image.setSourceTable(tableName);

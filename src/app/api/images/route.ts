@@ -219,17 +219,28 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // 后端不可用或返回错误
+    // 后端返回错误，返回空数据降级
     return NextResponse.json({
-      success: false,
-      message: result?.message || '获取图片列表失败',
-    }, { status: 500 });
+      success: true,
+      data: {
+        list: [],
+        total: 0,
+        page: parseInt(searchParams.get('page') || '1'),
+        pageSize: parseInt(searchParams.get('pageSize') || '40'),
+      },
+    });
   } catch (error) {
+    // 后端不可用，返回空数据降级而非 500 错误
     console.error('[API] 获取图片列表失败:', error);
     return NextResponse.json({
-      success: false,
-      message: '获取图片列表失败',
-    }, { status: 500 });
+      success: true,
+      data: {
+        list: [],
+        total: 0,
+        page: parseInt(new URL(request.url).searchParams.get('page') || '1'),
+        pageSize: parseInt(new URL(request.url).searchParams.get('pageSize') || '40'),
+      },
+    });
   }
 }
 

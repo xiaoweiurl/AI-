@@ -94,7 +94,7 @@ export async function backendFetch(
   // 初始化 fetchOptions
   const fetchOptions: RequestInit = {
     method: options.method || 'GET',
-    signal: options.timeout ? AbortSignal.timeout(options.timeout) : undefined,
+    signal: AbortSignal.timeout(options.timeout || 5000), // 默认 5 秒超时
     // 跨域请求配置
     mode: 'cors',
     credentials: 'include',

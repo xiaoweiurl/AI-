@@ -742,46 +742,12 @@ export default function Home() {
         console.error('[Home] API 返回失败:', result);
       }
     } catch (error) {
-      console.error('获取图片数据失败:', error);
-      // 失败时不使用模拟数据，只使用已加载的数据库数据
+      // 后端不可用时静默降级，不打印错误到控制台
       if (!append) {
-        console.log('[Home] 使用数据库数据，不使用模拟数据，allImages:', allImages.length);
-
-        // 只使用数据库数据（allImages），不使用模拟数据
-        const sourceImages = allImages;
-
-        // 根据当前菜单项过滤数据
-        let filteredImages: typeof mockImages = [];
-
-        if (activeMenuItem === 'trash') {
-          // 回收站：显示已删除的主图
-          filteredImages = sourceImages.filter(img => img.deleted === true && img.isMainImage === true);
-          console.log('[Home] 回收站过滤后:', filteredImages.length, '张');
-        } else if (activeMenuItem === 'favorites') {
-          // 收藏：显示收藏的主图
-          filteredImages = sourceImages.filter(img => img.favorite === true && img.isMainImage === true);
-          console.log('[Home] 收藏过滤后:', filteredImages.length, '张');
-        } else if (activeMenuItem.startsWith('album-') || albums.some(a => a.id === activeMenuItem)) {
-          // 相册：只显示该相册及其子相册的主图
-          // 如果有子相册，使用 selectedAlbumIds 来筛选
-          // 兼容两种格式：带 album- 前缀的 mock 数据，以及真实数据库的 UUID 格式
-          const pureAlbumId = activeMenuItem.startsWith('album-') 
-            ? activeMenuItem.replace('album-', '') 
-            : activeMenuItem;
-          const albumIdsToFilter = selectedAlbumIds.length > 0 ? selectedAlbumIds : [pureAlbumId];
-          filteredImages = sourceImages.filter(img =>
-            img.albumId && albumIdsToFilter.includes(img.albumId) &&
-            img.isMainImage === true &&
-            img.deleted !== true
-          );
-          console.log('[Home] 相册过滤后:', filteredImages.length, '张', 'albumIds:', albumIdsToFilter);
-        } else {
-          // 默认（全部图片或其他）：只显示主图
-          filteredImages = sourceImages.filter(img => img.isMainImage === true && img.deleted !== true);
-          console.log('[Home] 默认过滤后:', filteredImages.length, '张');
-        }
-
-        setImages(filteredImages);
+        // 降级：显示空数据
+        setImages([]);
+        setTotalCount(0);
+        setHasMore(false);
       }
     } finally {
       setLoadingMore(false);
@@ -801,7 +767,7 @@ export default function Home() {
         setTags(tagList);
       }
     } catch (error) {
-      console.error('获取标签数据失败:', error);
+      // 后端不可用时静默降级
     }
   }, []);
 

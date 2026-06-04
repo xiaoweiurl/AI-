@@ -46,6 +46,8 @@ export interface ImageItem {
   createdAt: string;
   updatedAt: string;
   userId: string;
+  isMainImage?: boolean;  // 是否为商品主图
+  productId?: string;     // 关联的商品ID（详情图）
   deleted: boolean;
   deletedAt?: string;
   // 浏览和下载统计

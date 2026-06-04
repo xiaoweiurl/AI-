@@ -44,6 +44,7 @@ export interface ImageItem {
   albumId?: string;
   albumName?: string;
   fileType?: string;  // 图片格式，如 jpg, png, gif, webp, bmp 等
+  userId?: string;    // 上传用户ID（用于数据隔离）
   deleted?: boolean;
   deletedAt?: string;
   createdAt?: string; // 后端返回的日期字段

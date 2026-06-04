@@ -4,9 +4,9 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: '数字知识库 API',
+      title: '盈云产品智能中台 API',
       version: '1.0.0',
-      description: '数字知识库管理系统的RESTful API文档',
+      description: '盈云产品智能中台管理系统的RESTful API文档',
       contact: {
         name: 'Digital Knowledge Base Team',
       },

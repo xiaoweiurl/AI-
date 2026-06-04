@@ -801,7 +801,7 @@ export default function Sidebar({
           {!collapsed && (
             <div className="flex flex-col">
               <span className="text-lg font-bold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                数字知识库
+                盈云产品智能中台
               </span>
               <span className="text-xs text-slate-400">Digital Knowledge Base</span>
             </div>

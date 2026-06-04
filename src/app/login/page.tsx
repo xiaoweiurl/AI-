@@ -123,7 +123,7 @@ export default function LoginPage() {
             <BookOpen className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-            数字知识库
+            盈云产品智能中台
           </h1>
           <p className="text-slate-500 mt-2">Digital Knowledge Base</p>
         </div>

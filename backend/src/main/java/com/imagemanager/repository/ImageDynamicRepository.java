@@ -208,10 +208,10 @@ public class ImageDynamicRepository {
                 images.add(mapToImage(row, tableName));
             }
             
-            return new PageResponse<>(images, total.longValue(), page, pageSize);
+            return PageResponse.of(images, total.longValue(), page, pageSize);
         } catch (Exception e) {
             log.error("分页查询图片失败, 表: {}", tableName, e);
-            return new PageResponse<>(new ArrayList<>(), 0L, 1, 20);
+            return PageResponse.of(new ArrayList<>(), 0L, 1, 20);
         }
     }
 
@@ -221,7 +221,7 @@ public class ImageDynamicRepository {
     public PageResponse<Image> findAllUsersImages(ImageQueryRequest request, List<String> tableNames) {
         try {
             if (tableNames.isEmpty()) {
-                return new PageResponse<>(new ArrayList<>(), 0L, 1, 20);
+                return PageResponse.of(new ArrayList<>(), 0L, 1, 20);
             }
             
             // 构建条件
@@ -277,10 +277,10 @@ public class ImageDynamicRepository {
                 images.add(mapToImage(row, sourceTable));
             }
             
-            return new PageResponse<>(images, total.longValue(), page, pageSize);
+            return PageResponse.of(images, total.longValue(), page, pageSize);
         } catch (Exception e) {
             log.error("查询所有用户图片失败", e);
-            return new PageResponse<>(new ArrayList<>(), 0L, 1, 20);
+            return PageResponse.of(new ArrayList<>(), 0L, 1, 20);
         }
     }
 

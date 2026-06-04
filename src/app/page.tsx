@@ -739,6 +739,12 @@ export default function Home() {
         setCurrentPage(page);
         setTotalCount(result.data?.total || result.pagination?.total || 0);
         setTotalPages(result.data?.totalPages || result.pagination?.totalPages || 0);
+
+        // 动态更新侧边栏"我的知识库/二创中心"的数量
+        if (activeMenuItem === 'my-images' || activeMenuItem === 'creative-center') {
+          const total = result.data?.total || result.pagination?.total || 0;
+          setDynamicTableCount(total);
+        }
       } else {
         console.error('[Home] API 返回失败:', result);
       }
@@ -910,7 +916,8 @@ export default function Home() {
         if (result.code === 200 && result.data) {
           setCurrentUser(result.data);
           // 登录成功后获取图片数据和标签列表
-          await fetchAllImages(); // 获取完整数据用于统计
+          await fetchAllImages();
+        fetchDynamicTableCount(); // 获取完整数据用于统计
           await fetchImages();    // 获取当前视图数据
           await fetchTags();
           await fetchAlbums();    // 获取相册列表
@@ -1156,7 +1163,8 @@ export default function Home() {
       if (isApiSuccess(result)) {
         // 重新获取图片数据
         await fetchImages();
-        await fetchAllImages(); // 同时更新统计数据
+        await fetchAllImages();
+        fetchDynamicTableCount();
         
         toast.success('已移至回收站', {
           description: `"${image.title}" 已移至回收站`
@@ -1214,7 +1222,8 @@ export default function Home() {
       
       if (isSuccess) {
         await fetchImages();
-        await fetchAllImages(); // 同时更新统计数据
+        await fetchAllImages();
+        fetchDynamicTableCount();
         
         toast.success('图片移动成功', {
           description: `已将"${image.title}"移动到"${targetAlbum.name}"相册`
@@ -1260,7 +1269,8 @@ export default function Home() {
 
       if (isApiSuccess(result)) {
         await fetchImages();
-        await fetchAllImages(); // 同时更新统计数据
+        await fetchAllImages();
+        fetchDynamicTableCount();
         
         // 获取恢复的图片数量（主图+详情图）
         const restoredCount = result.data || 1;
@@ -1308,7 +1318,8 @@ export default function Home() {
 
       if (isApiSuccess(result)) {
         await fetchImages();
-        await fetchAllImages(); // 同时更新统计数据
+        await fetchAllImages();
+        fetchDynamicTableCount();
         
         // 获取删除的图片数量（主图+详情图）
         const deletedCount = result.data || 1;
@@ -1368,7 +1379,8 @@ export default function Home() {
       if (isApiSuccess(result)) {
         // 刷新数据
         await fetchImages();
-        await fetchAllImages(); // 同时更新统计数据
+        await fetchAllImages();
+        fetchDynamicTableCount();
         
         toast.success('批量移动成功', {
           description: `已将 ${count} 张图片移动到"${targetAlbum?.name}"相册`
@@ -1513,6 +1525,7 @@ export default function Home() {
 
         // 获取完整数据用于统计（不使用当前视图的部分数据）
         await fetchAllImages();
+        fetchDynamicTableCount();
       }
 
       // 获取标签列表
@@ -1566,6 +1579,7 @@ export default function Home() {
 
         // 获取完整数据用于统计（不使用当前视图的部分数据）
         await fetchAllImages();
+        fetchDynamicTableCount();
       }
       
       // 获取标签列表
@@ -2057,6 +2071,7 @@ export default function Home() {
                 // 重新获取图片数据
                 await fetchImages();
                 await fetchAllImages();
+        fetchDynamicTableCount();
                 
                 // 获取恢复的图片数量（主图+详情图）
                 const restoredCount = result.data || count;
@@ -2110,6 +2125,7 @@ export default function Home() {
                 // 重新获取图片数据
                 await fetchImages();
                 await fetchAllImages();
+        fetchDynamicTableCount();
                 
                 // 获取删除的图片数量（主图+详情图）
                 const deletedCount = result.data || count;
@@ -2174,7 +2190,8 @@ export default function Home() {
               if (isApiSuccess(result)) {
                 // 重新获取图片数据
                 await fetchImages();
-                await fetchAllImages(); // 同时更新统计数据
+                await fetchAllImages();
+        fetchDynamicTableCount();
                 
                 toast.success('已移至回收站', {
                   description: `${count} 张图片已移至回收站`
@@ -2225,7 +2242,8 @@ export default function Home() {
             if (isApiSuccess(result)) {
               // 重新获取图片数据
               await fetchImages();
-              await fetchAllImages(); // 同时更新统计数据
+              await fetchAllImages();
+        fetchDynamicTableCount();
               
               toast.success('批量收藏成功', {
                 description: `已将 ${count} 张图片添加到收藏夹`

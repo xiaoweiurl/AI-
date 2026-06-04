@@ -98,7 +98,12 @@ public class ImageQueryRequest {
     private Boolean includeDeleted;
     
     /**
-     * 用户ID（用于动态表查询）
+     * 用户ID（用于按用户过滤查询）
      */
     private String userId;
+
+    /**
+     * 二创中心 - 排除该用户ID的图片（查询其他用户上传的）
+     */
+    private String otherUsersUserId;
 }

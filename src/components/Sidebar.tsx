@@ -705,12 +705,18 @@ export default function Sidebar({
       icon: BookOpen,
       count: allImagesCount,
     },
-    {
+    // 管理员显示「二创中心」，普通用户显示「我的知识库」
+    ...(isAdmin ? [{
+      id: 'creative-center',
+      label: '二创中心',
+      icon: Sparkles,
+      count: myImagesCount,
+    }] : [{
       id: 'my-images',
       label: '我的知识库',
       icon: Library,
       count: myImagesCount,
-    },
+    }]),
     {
       id: 'albums',
       label: '知识分类',
@@ -745,13 +751,6 @@ export default function Sidebar({
       icon: Heart,
       count: favoritesCount,
     },
-    // 二创中心 - 仅管理员可见，查看其他用户上传的图片
-    ...(isAdmin ? [{
-      id: 'creative-center',
-      label: '二创中心',
-      icon: Sparkles,
-      count: 0,
-    }] : []),
   ];
 
   const bottomItems: MenuItem[] = [

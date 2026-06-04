@@ -156,40 +156,40 @@ public class ImageServiceImpl implements ImageService {
             }
 
             if (request.getOnlyMine() != null && request.getOnlyMine()) {
-                // 我的知识库 - 只查询当前用户上传的文件/图片（动态表）
-                log.info("使用动态表查询【我的知识库】, userId={}", currentUserId);
+                // 我的知识库 - 从主表查询当前用户上传的图片
+                log.info("查询【我的知识库】, userId={}", currentUserId);
                 request.setUserId(currentUserId);
-                return imageDynamicRepository.queryMyImages(request, currentUserId);
+                // fall through 到 JPA 主表查询（带 userId 过滤）
             }
 
-            // 二创中心 - 查询其他用户上传的图片
+            // 二创中心 - 从主表查询其他用户上传的图片
             if (request.getOtherUsers() != null && request.getOtherUsers()) {
-                log.info("使用动态表查询【二创中心】, currentUserId={}", currentUserId);
-                return imageDynamicRepository.queryOtherUsersImages(request, currentUserId);
+                log.info("查询【二创中心】, currentUserId={}", currentUserId);
+                request.setOtherUsersUserId(currentUserId);
+                // fall through 到 JPA 主表查询（带 userId != currentUserId 过滤）
             }
 
-            // 收藏夹 - 查当前用户动态表
+            // 收藏夹 - 查当前用户的收藏
             if (request.getFavorite() != null && request.getFavorite()) {
-                log.info("使用动态表查询【收藏夹】, userId={}", currentUserId);
+                log.info("查询【收藏夹】, userId={}", currentUserId);
                 request.setUserId(currentUserId);
-                return imageDynamicRepository.queryFavorites(request, currentUserId);
+                // fall through 到 JPA 主表查询
             }
 
-            // 回收站 - 查当前用户动态表
+            // 回收站 - 查当前用户已删除的
             if (request.getDeleted() != null && request.getDeleted()) {
-                log.info("使用动态表查询【回收站】, userId={}", currentUserId);
+                log.info("查询【回收站】, userId={}", currentUserId);
                 request.setUserId(currentUserId);
-                return imageDynamicRepository.queryTrash(request, currentUserId);
+                // fall through 到 JPA 主表查询
             }
 
             // 相册查询 - 数据是共享的，走主表 JPA 查询
-            // （相册图片不属于某个用户，所有用户都能看到）
             if (request.getAlbumId() != null && !request.getAlbumId().isEmpty()) {
                 log.info("查询【相册图片】(主表共享数据), albumId={}", request.getAlbumId());
                 // fall through 到 JPA 主表查询
             }
 
-            // 全部知识 - 查询主表（共享数据，所有知识分类）
+            // 全部知识 - 查询主表（共享数据）
             log.info("查询【全部知识】(主表), userId={}", currentUserId);
             // fall through 到 JPA 主表查询
         }
@@ -230,7 +230,9 @@ public class ImageServiceImpl implements ImageService {
             (request.getAlbumId() != null && !request.getAlbumId().isEmpty()) ||
             request.getFavorite() != null ||
             request.getOnlyMainImage() != null ||
-            request.getOnlyMine() != null;
+            request.getOnlyMine() != null ||
+            (request.getUserId() != null && !request.getUserId().isEmpty()) ||
+            (request.getOtherUsersUserId() != null && !request.getOtherUsersUserId().isEmpty());
 
         if (hasAdvancedFilters) {
             // 使用数据库分页查询（真正的数据库层面分页）
@@ -310,10 +312,14 @@ public class ImageServiceImpl implements ImageService {
                 predicates.add(cb.equal(root.get("deleted"), false));
                 predicates.add(cb.equal(root.get("isMainImage"), true));
                 
-                // 数据隔离：只查询当前用户的图片
-                if (finalOnlyMine != null && finalOnlyMine && currentUserId != null) {
-                    predicates.add(cb.equal(root.get("userId"), currentUserId));
-                    log.info("添加 userId 过滤条件：{}", currentUserId);
+                // 数据隔离：按用户ID过滤（我的知识库 / 收藏夹 / 回收站）
+                if (request.getUserId() != null && !request.getUserId().isEmpty()) {
+                    predicates.add(cb.equal(root.get("userId"), request.getUserId()));
+                }
+                
+                // 二创中心：排除当前用户，查询其他用户上传的图片
+                if (request.getOtherUsersUserId() != null && !request.getOtherUsersUserId().isEmpty()) {
+                    predicates.add(cb.notEqual(root.get("userId"), request.getOtherUsersUserId()));
                 }
                 
                 // 关键词筛选

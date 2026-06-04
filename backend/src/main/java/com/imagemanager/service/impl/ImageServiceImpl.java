@@ -163,12 +163,12 @@ public class ImageServiceImpl implements ImageService {
                     log.info("我的知识库查询结果: {} 张", result.getTotal());
                     return result;
                 } catch (Exception e) {
-                    log.warn("动态表查询失败，降级到主表: {}", e.getMessage());
-                    request.setUserId(currentUserId);
+                    log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
+                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
                 }
             }
 
-            // 二创中心 - 查其他用户动态表 UNION ALL
+            // 二创中心 - 查其他用户动态表 UNION ALL（不降级主表）
             if (request.getOtherUsers() != null && request.getOtherUsers()) {
                 log.info("查询【二创中心】(其他用户动态表), currentUserId={}", currentUserId);
                 try {
@@ -176,12 +176,12 @@ public class ImageServiceImpl implements ImageService {
                     log.info("二创中心查询结果: {} 张", result.getTotal());
                     return result;
                 } catch (Exception e) {
-                    log.warn("动态表查询失败，降级到主表: {}", e.getMessage());
-                    request.setOtherUsersUserId(currentUserId);
+                    log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
+                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
                 }
             }
 
-            // 收藏夹 - 查当前用户动态表
+            // 收藏夹 - 查当前用户动态表（不降级主表）
             if (request.getFavorite() != null && request.getFavorite()) {
                 log.info("查询【收藏夹】(动态表), userId={}", currentUserId);
                 try {
@@ -189,12 +189,12 @@ public class ImageServiceImpl implements ImageService {
                     log.info("收藏夹查询结果: {} 张", result.getTotal());
                     return result;
                 } catch (Exception e) {
-                    log.warn("动态表查询失败，降级到主表: {}", e.getMessage());
-                    request.setUserId(currentUserId);
+                    log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
+                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
                 }
             }
 
-            // 回收站 - 查当前用户动态表
+            // 回收站 - 查当前用户动态表（不降级主表）
             if (request.getDeleted() != null && request.getDeleted()) {
                 log.info("查询【回收站】(动态表), userId={}", currentUserId);
                 try {
@@ -202,8 +202,8 @@ public class ImageServiceImpl implements ImageService {
                     log.info("回收站查询结果: {} 张", result.getTotal());
                     return result;
                 } catch (Exception e) {
-                    log.warn("动态表查询失败，降级到主表: {}", e.getMessage());
-                    request.setUserId(currentUserId);
+                    log.warn("动态表查询失败，返回空数据: {}", e.getMessage());
+                    return PageResponse.of(Collections.emptyList(), 0, request.getPage(), request.getPageSize());
                 }
             }
 

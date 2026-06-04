@@ -135,11 +135,12 @@ public class ImageDynamicRepository {
             Query query = entityManager.createNativeQuery(querySQL);
             query.setParameter(1, id);
             
-            Object[] result = (Object[]) query.getSingleResultOrNull();
-            if (result == null) {
+            @SuppressWarnings("unchecked")
+            List<Object[]> results = query.getResultList();
+            if (results.isEmpty()) {
                 return null;
             }
-            return mapToImage(result, tableName);
+            return mapToImage(results.get(0), tableName);
         } catch (Exception e) {
             log.error("查询图片失败, 表: {}, id: {}", tableName, id, e);
             return null;

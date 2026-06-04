@@ -113,7 +113,7 @@ public class ImageServiceImpl implements ImageService {
             imageDynamicRepository.update(image, userId);
             log.debug("同步到动态表成功, userId={}, imageId={}", userId, image.getId());
         } catch (Exception e) {
-            log.warn("同步到动态表失败: {}", e.getMessage());
+            log.error("同步到动态表失败: userId={}, imageId={}, error={}", userId, image.getId(), e.getMessage(), e);
         }
     }
 
@@ -585,7 +585,8 @@ public class ImageServiceImpl implements ImageService {
                 imageDynamicRepository.save(image, currentUserId);
                 log.info("图片已保存到用户动态表: images_{}", currentUserId.replaceAll("[^a-zA-Z0-9]", "_"));
             } catch (Exception e) {
-                log.warn("保存到用户动态表失败: {}", e.getMessage());
+                log.error("保存到用户动态表失败: userId={}, table=images_{}, error={}", 
+                    currentUserId, currentUserId.replaceAll("[^a-zA-Z0-9]", "_"), e.getMessage(), e);
             }
             
             // 更新相册图片数量

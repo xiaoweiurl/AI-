@@ -249,9 +249,9 @@ export default function DocumentUploadDialog({
         formData.append('fileName', uploadingFile.file.name);
         formData.append('category', uploadingFile.category); // 传递分类
 
-        // 直接调用 Java 后端 API，添加 session
+        // 通过 Next.js API Route 代理到后端
         const sessionId = getSessionId();
-        const response = await fetch(`${BACKEND_API_URL}/documents/upload`, {
+        const response = await fetch('/api/documents/upload', {
           method: 'POST',
           credentials: 'include',
           headers: {

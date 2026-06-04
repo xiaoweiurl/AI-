@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { Upload, X, Image as ImageIcon, Loader2, CheckCircle2 } from 'lucide-react';
+import { getSessionId } from '@/lib/auth-client';
 
 // 后端 API 基础 URL
 const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
@@ -111,12 +112,15 @@ export default function UploadDialog({
 
       try {
         const formData = new FormData();
-        formData.append('files', uploadingFile.file); // 注意：后端 API 使用 'files' 参数
+        formData.append('file', uploadingFile.file); // 后端 @RequestParam("file")
 
-        // 直接调用 Java 后端 API
-        const response = await fetch(`${BACKEND_API_URL}/images/upload`, {
+        // 通过 Next.js API Route 代理到后端
+        const response = await fetch('/api/images/upload', {
           method: 'POST',
           credentials: 'include',
+          headers: {
+            'X-Session-Id': getSessionId() as string,
+          },
           body: formData,
         });
 

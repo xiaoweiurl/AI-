@@ -18,6 +18,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 import java.util.*;
 
 @Slf4j
@@ -463,12 +466,12 @@ public class SupplyChainController {
         return (val == null || val.trim().isEmpty()) ? null : val.trim();
     }
 
-    private java.math.BigDecimal getCellDecimal(org.apache.poi.ss.usermodel.Row row, int col) {
+    private BigDecimal getCellDecimal(org.apache.poi.ss.usermodel.Row row, int col) {
         org.apache.poi.ss.usermodel.Cell cell = row.getCell(col);
         if (cell == null) return null;
         try {
             double d = cell.getNumericCellValue();
-            return java.math.BigDecimal.valueOf(d);
+            return BigDecimal.valueOf(d);
         } catch (Exception e) {
             return null;
         }
@@ -502,19 +505,19 @@ public class SupplyChainController {
             ProductQuotation q = optQ.get();
 
             // 计算原料成本
-            java.math.BigDecimal materialCost = java.math.BigDecimal.ZERO;
+            BigDecimal materialCost = BigDecimal.ZERO;
             java.util.List<Map<String, Object>> materialBreakdown = new java.util.ArrayList<>();
 
             String[] matNames = {q.getRawMaterialName1(), q.getRawMaterialName2(), q.getRawMaterialName3(),
                     q.getRawMaterialName4(), q.getRawMaterialName5(), q.getRawMaterialName6()};
-            java.math.BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
+            BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
                     q.getMaterialUsage4(), q.getMaterialUsage5(), q.getMaterialUsage6()};
-            java.math.BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
+            BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
                     q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
 
             for (int i = 0; i < 6; i++) {
                 if (matNames[i] != null && matUsages[i] != null && matPrices[i] != null) {
-                    java.math.BigDecimal cost = matUsages[i].multiply(matPrices[i]);
+                    BigDecimal cost = matUsages[i].multiply(matPrices[i]);
                     materialCost = materialCost.add(cost);
                     materialBreakdown.add(Map.of(
                             "name", matNames[i],
@@ -526,19 +529,19 @@ public class SupplyChainController {
             }
 
             // 辅料成本
-            java.math.BigDecimal accessoryCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : java.math.BigDecimal.ZERO;
+            BigDecimal accessoryCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : BigDecimal.ZERO;
 
             // 加工成本（从生产计划获取）
-            java.math.BigDecimal processingCost = java.math.BigDecimal.ZERO;
+            BigDecimal processingCost = BigDecimal.ZERO;
             Optional<ProductionPlan> optP = productionPlanRepository.findByProductCode(productCode);
             java.util.Map<String, Object> productionInfo = new java.util.HashMap<>();
             if (optP.isPresent()) {
                 ProductionPlan p = optP.get();
                 // 假设加工费 = 缝头重量(g) × 0.005元/g + 秒数 × 0.001元/秒
-                java.math.BigDecimal sewingCost = p.getSewingWeight() != null ?
-                        p.getSewingWeight().multiply(java.math.BigDecimal.valueOf(0.005)) : java.math.BigDecimal.ZERO;
-                java.math.BigDecimal timeCost = p.getSeconds() != null ?
-                        p.getSeconds().multiply(java.math.BigDecimal.valueOf(0.001)) : java.math.BigDecimal.ZERO;
+                BigDecimal sewingCost = p.getSewingWeight() != null ?
+                        p.getSewingWeight().multiply(BigDecimal.valueOf(0.005)) : BigDecimal.ZERO;
+                BigDecimal timeCost = p.getSeconds() != null ?
+                        p.getSeconds().multiply(BigDecimal.valueOf(0.001)) : BigDecimal.ZERO;
                 processingCost = sewingCost.add(timeCost);
                 productionInfo.put("semiProductCode", p.getSemiProductCode());
                 productionInfo.put("sewingWeight", p.getSewingWeight());
@@ -549,18 +552,18 @@ public class SupplyChainController {
             }
 
             // 总成本
-            java.math.BigDecimal totalCost = materialCost.add(accessoryCost).add(processingCost);
+            BigDecimal totalCost = materialCost.add(accessoryCost).add(processingCost);
 
             // 报价 = 总成本 × (1 + 利润率/100)
-            java.math.BigDecimal quotePrice = totalCost.multiply(
-                    java.math.BigDecimal.ONE.add(java.math.BigDecimal.valueOf(profitMargin / 100.0)));
+            BigDecimal quotePrice = totalCost.multiply(
+                    BigDecimal.ONE.add(BigDecimal.valueOf(profitMargin / 100.0)));
 
             // 查找最优供应商
             java.util.List<Map<String, Object>> supplierSuggestions = new java.util.ArrayList<>();
             for (int i = 0; i < 6; i++) {
                 if (matNames[i] != null) {
                     List<RawMaterialPurchase> purchases = rawMaterialPurchaseRepository.findByMaterialCode(matNames[i]);
-                    java.math.BigDecimal bestPrice = null;
+                    BigDecimal bestPrice = null;
                     String bestSupplier = null;
                     for (RawMaterialPurchase rp : purchases) {
                         if (rp.getUnitPrice() != null && (bestPrice == null || rp.getUnitPrice().compareTo(bestPrice) < 0)) {
@@ -569,8 +572,8 @@ public class SupplyChainController {
                         }
                     }
                     if (bestPrice != null) {
-                        java.math.BigDecimal currentPrice = matPrices[i] != null ? matPrices[i] : java.math.BigDecimal.ZERO;
-                        java.math.BigDecimal savings = currentPrice.subtract(bestPrice).multiply(matUsages[i] != null ? matUsages[i] : java.math.BigDecimal.ONE);
+                        BigDecimal currentPrice = matPrices[i] != null ? matPrices[i] : BigDecimal.ZERO;
+                        BigDecimal savings = currentPrice.subtract(bestPrice).multiply(matUsages[i] != null ? matUsages[i] : BigDecimal.ONE);
                         supplierSuggestions.add(Map.of(
                                 "materialCode", matNames[i],
                                 "currentPrice", currentPrice,
@@ -613,18 +616,18 @@ public class SupplyChainController {
             java.util.List<Map<String, Object>> productList = new java.util.ArrayList<>();
 
             for (ProductQuotation q : quotations) {
-                java.math.BigDecimal materialCost = java.math.BigDecimal.ZERO;
-                java.math.BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
+                BigDecimal materialCost = BigDecimal.ZERO;
+                BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
                         q.getMaterialUsage4(), q.getMaterialUsage5(), q.getMaterialUsage6()};
-                java.math.BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
+                BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
                         q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
                 for (int i = 0; i < 6; i++) {
                     if (matUsages[i] != null && matPrices[i] != null) {
                         materialCost = materialCost.add(matUsages[i].multiply(matPrices[i]));
                     }
                 }
-                java.math.BigDecimal accessoryCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : java.math.BigDecimal.ZERO;
-                java.math.BigDecimal totalCost = materialCost.add(accessoryCost);
+                BigDecimal accessoryCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : BigDecimal.ZERO;
+                BigDecimal totalCost = materialCost.add(accessoryCost);
 
                 Map<String, Object> item = new LinkedHashMap<>();
                 item.put("id", q.getId());
@@ -670,7 +673,7 @@ public class SupplyChainController {
                 grouped.get(code).add(Map.of(
                         "supplier", p.getSupplier() != null ? p.getSupplier() : "",
                         "batchNo", p.getBatchNo() != null ? p.getBatchNo() : "",
-                        "unitPrice", p.getUnitPrice() != null ? p.getUnitPrice() : java.math.BigDecimal.ZERO,
+                        "unitPrice", p.getUnitPrice() != null ? p.getUnitPrice() : BigDecimal.ZERO,
                         "unit", p.getUnit() != null ? p.getUnit() : ""
                 ));
             }
@@ -690,52 +693,52 @@ public class SupplyChainController {
             List<ProductQuotation> quotations = productQuotationRepository.findAll();
             java.util.List<Map<String, Object>> analysis = new java.util.ArrayList<>();
 
-            java.math.BigDecimal totalMaterialCost = java.math.BigDecimal.ZERO;
-            java.math.BigDecimal totalAccessoryCost = java.math.BigDecimal.ZERO;
-            java.math.BigDecimal totalCost = java.math.BigDecimal.ZERO;
+            BigDecimal totalMaterialCost = BigDecimal.ZERO;
+            BigDecimal totalAccessoryCost = BigDecimal.ZERO;
+            BigDecimal totalCost = BigDecimal.ZERO;
 
             for (ProductQuotation q : quotations) {
-                java.math.BigDecimal matCost = java.math.BigDecimal.ZERO;
+                BigDecimal matCost = BigDecimal.ZERO;
                 String[] matNames = {q.getRawMaterialName1(), q.getRawMaterialName2(), q.getRawMaterialName3(),
                         q.getRawMaterialName4(), q.getRawMaterialName5(), q.getRawMaterialName6()};
-                java.math.BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
+                BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
                         q.getMaterialUsage4(), q.getMaterialUsage5(), q.getMaterialUsage6()};
-                java.math.BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
+                BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
                         q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
 
                 java.util.List<Map<String, Object>> breakdown = new java.util.ArrayList<>();
                 for (int i = 0; i < 6; i++) {
                     if (matNames[i] != null && matUsages[i] != null && matPrices[i] != null) {
-                        java.math.BigDecimal cost = matUsages[i].multiply(matPrices[i]);
+                        BigDecimal cost = matUsages[i].multiply(matPrices[i]);
                         matCost = matCost.add(cost);
                         breakdown.add(Map.of("name", matNames[i], "cost", cost,
-                                "percentage", java.math.BigDecimal.ZERO)); // 先填0，后面算比例
+                                "percentage", BigDecimal.ZERO)); // 先填0，后面算比例
                     }
                 }
 
-                java.math.BigDecimal accCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : java.math.BigDecimal.ZERO;
-                java.math.BigDecimal prodCost = java.math.BigDecimal.ZERO;
+                BigDecimal accCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : BigDecimal.ZERO;
+                BigDecimal prodCost = BigDecimal.ZERO;
 
                 // 加工成本
                 Optional<ProductionPlan> optP = productionPlanRepository.findByProductCode(q.getProductCode());
                 if (optP.isPresent()) {
                     ProductionPlan p = optP.get();
-                    java.math.BigDecimal sewingCost = p.getSewingWeight() != null ?
-                            p.getSewingWeight().multiply(java.math.BigDecimal.valueOf(0.005)) : java.math.BigDecimal.ZERO;
-                    java.math.BigDecimal timeCost = p.getSeconds() != null ?
-                            p.getSeconds().multiply(java.math.BigDecimal.valueOf(0.001)) : java.math.BigDecimal.ZERO;
+                    BigDecimal sewingCost = p.getSewingWeight() != null ?
+                            p.getSewingWeight().multiply(BigDecimal.valueOf(0.005)) : BigDecimal.ZERO;
+                    BigDecimal timeCost = p.getSeconds() != null ?
+                            p.getSeconds().multiply(BigDecimal.valueOf(0.001)) : BigDecimal.ZERO;
                     prodCost = sewingCost.add(timeCost);
                 }
 
-                java.math.BigDecimal rowTotal = matCost.add(accCost).add(prodCost);
+                BigDecimal rowTotal = matCost.add(accCost).add(prodCost);
 
                 // 计算各项百分比
                 java.util.List<Map<String, Object>> breakdownWithPct = new java.util.ArrayList<>();
                 for (Map<String, Object> b : breakdown) {
-                    java.math.BigDecimal c = (java.math.BigDecimal) b.get("cost");
-                    java.math.BigDecimal pct = rowTotal.compareTo(java.math.BigDecimal.ZERO) > 0 ?
-                            c.divide(rowTotal, 4, java.math.RoundingMode.HALF_UP).multiply(java.math.BigDecimal.valueOf(100)) :
-                            java.math.BigDecimal.ZERO;
+                    BigDecimal c = (BigDecimal) b.get("cost");
+                    BigDecimal pct = rowTotal.compareTo(BigDecimal.ZERO) > 0 ?
+                            c.divide(rowTotal, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)) :
+                            BigDecimal.ZERO;
                     breakdownWithPct.add(Map.of("name", b.get("name"), "cost", c, "percentage", pct));
                 }
 
@@ -758,11 +761,11 @@ public class SupplyChainController {
             summary.put("totalMaterialCost", totalMaterialCost);
             summary.put("totalAccessoryCost", totalAccessoryCost);
             summary.put("totalCost", totalCost);
-            summary.put("avgCostPerProduct", quotations.isEmpty() ? java.math.BigDecimal.ZERO :
-                    totalCost.divide(java.math.BigDecimal.valueOf(quotations.size()), 4, java.math.RoundingMode.HALF_UP));
-            summary.put("materialCostRatio", totalCost.compareTo(java.math.BigDecimal.ZERO) > 0 ?
-                    totalMaterialCost.divide(totalCost, 4, java.math.RoundingMode.HALF_UP).multiply(java.math.BigDecimal.valueOf(100)) :
-                    java.math.BigDecimal.ZERO);
+            summary.put("avgCostPerProduct", quotations.isEmpty() ? BigDecimal.ZERO :
+                    totalCost.divide(BigDecimal.valueOf(quotations.size()), 4, RoundingMode.HALF_UP));
+            summary.put("materialCostRatio", totalCost.compareTo(BigDecimal.ZERO) > 0 ?
+                    totalMaterialCost.divide(totalCost, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)) :
+                    BigDecimal.ZERO);
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("summary", summary);

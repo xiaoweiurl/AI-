@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ProductQuotationRepository extends JpaRepository<ProductQuotation, Integer>, JpaSpecificationExecutor<ProductQuotation> {
+    Optional<ProductQuotation> findByProductCode(String productCode);
 }

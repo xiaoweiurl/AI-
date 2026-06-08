@@ -1253,8 +1253,8 @@ public class ImageServiceImpl implements ImageService {
     }
     
     @Override
-    public PageResponse<Image> getTrash(Integer page, Integer pageSize) {
-        log.info("获取回收站图片列表");
+    public PageResponse<Image> getTrash(Integer page, Integer pageSize, String keyword) {
+        log.info("获取回收站图片列表, keyword={}", keyword);
         
         // 尝试使用动态表查询
         String currentUserId = SessionUtil.getCurrentUserId();
@@ -1265,6 +1265,9 @@ public class ImageServiceImpl implements ImageService {
                 request.setIncludeDeleted(true);
                 request.setPage(page);
                 request.setPageSize(pageSize);
+                if (keyword != null && !keyword.trim().isEmpty()) {
+                    request.setKeyword(keyword.trim());
+                }
                 // 不限制 onlyMainImage，动态表中所有删除的图片都应显示
                 request.setUserId(currentUserId);
                 return imageDynamicRepository.queryTrash(request, currentUserId);
@@ -1287,8 +1290,8 @@ public class ImageServiceImpl implements ImageService {
     }
     
     @Override
-    public PageResponse<Image> getRecent(Integer page, Integer pageSize) {
-        log.info("获取最近上传图片列表（只返回主图）");
+    public PageResponse<Image> getRecent(Integer page, Integer pageSize, String keyword) {
+        log.info("获取最近上传图片列表, keyword={}", keyword);
         
         // 尝试使用动态表查询
         String currentUserId = SessionUtil.getCurrentUserId();
@@ -1297,6 +1300,9 @@ public class ImageServiceImpl implements ImageService {
                 ImageQueryRequest request = new ImageQueryRequest();
                 request.setPage(page);
                 request.setPageSize(pageSize);
+                if (keyword != null && !keyword.trim().isEmpty()) {
+                    request.setKeyword(keyword.trim());
+                }
                 // 不限制 onlyMainImage，动态表中所有最近图片都应显示
                 request.setSortBy("created_at");
                 request.setSortOrder("desc");

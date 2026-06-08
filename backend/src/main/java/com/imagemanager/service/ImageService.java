@@ -137,12 +137,12 @@ public interface ImageService {
     /**
      * 获取回收站图片
      */
-    PageResponse<Image> getTrash(Integer page, Integer pageSize);
+    PageResponse<Image> getTrash(Integer page, Integer pageSize, String keyword);
     
     /**
      * 获取最近上传的图片（7天内）
      */
-    PageResponse<Image> getRecent(Integer page, Integer pageSize);
+    PageResponse<Image> getRecent(Integer page, Integer pageSize, String keyword);
     
     /**
      * 清空回收站

@@ -312,9 +312,10 @@ public class ImageController {
     @Operation(summary = "获取最近上传图片", description = "获取最近7天内上传的图片")
     public ApiResponse<PageResponse<Image>> getRecent(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "每页大小") @RequestParam(defaultValue = "20") Integer pageSize) {
-        log.info("获取最近上传图片列表");
-        PageResponse<Image> result = imageService.getRecent(page, pageSize);
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword) {
+        log.info("获取最近上传图片列表, keyword={}", keyword);
+        PageResponse<Image> result = imageService.getRecent(page, pageSize, keyword);
         return ApiResponse.success(result);
     }
     
@@ -325,9 +326,10 @@ public class ImageController {
     @Operation(summary = "获取回收站图片", description = "获取所有已删除的图片")
     public ApiResponse<PageResponse<Image>> getTrash(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "每页大小") @RequestParam(defaultValue = "20") Integer pageSize) {
-        log.info("获取回收站图片列表");
-        PageResponse<Image> result = imageService.getTrash(page, pageSize);
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "20") Integer pageSize,
+            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword) {
+        log.info("获取回收站图片列表, keyword={}", keyword);
+        PageResponse<Image> result = imageService.getTrash(page, pageSize, keyword);
         return ApiResponse.success(result);
     }
     

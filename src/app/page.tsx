@@ -879,7 +879,7 @@ export default function Home() {
         // 从 bfcache 恢复，重新检查登录状态
         const sessionId = localStorage.getItem('session_id');
         if (!sessionId) {
-          router.replace('/login');
+          window.location.href = '/login';
         }
       }
     };
@@ -917,7 +917,7 @@ export default function Home() {
       // 清除 Cookie 中的 session
       document.cookie = 'session_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
       toast.success('已退出登录');
-      router.replace('/login');
+      window.location.href = '/login';
     } catch (error) {
       console.error('登出失败:', error);
       toast.error('登出失败');

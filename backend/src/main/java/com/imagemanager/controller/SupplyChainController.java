@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 import java.util.*;
 
@@ -737,7 +736,7 @@ public class SupplyChainController {
                 for (Map<String, Object> b : breakdown) {
                     BigDecimal c = (BigDecimal) b.get("cost");
                     BigDecimal pct = rowTotal.compareTo(BigDecimal.ZERO) > 0 ?
-                            c.divide(rowTotal, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)) :
+                            c.divide(rowTotal, 4, /* ROUND_HALF_UP */4).multiply(BigDecimal.valueOf(100)) :
                             BigDecimal.ZERO;
                     breakdownWithPct.add(Map.of("name", b.get("name"), "cost", c, "percentage", pct));
                 }
@@ -762,9 +761,9 @@ public class SupplyChainController {
             summary.put("totalAccessoryCost", totalAccessoryCost);
             summary.put("totalCost", totalCost);
             summary.put("avgCostPerProduct", quotations.isEmpty() ? BigDecimal.ZERO :
-                    totalCost.divide(BigDecimal.valueOf(quotations.size()), 4, RoundingMode.HALF_UP));
+                    totalCost.divide(BigDecimal.valueOf(quotations.size()), 4, /* ROUND_HALF_UP */4));
             summary.put("materialCostRatio", totalCost.compareTo(BigDecimal.ZERO) > 0 ?
-                    totalMaterialCost.divide(totalCost, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)) :
+                    totalMaterialCost.divide(totalCost, 4, /* ROUND_HALF_UP */4).multiply(BigDecimal.valueOf(100)) :
                     BigDecimal.ZERO);
 
             Map<String, Object> result = new LinkedHashMap<>();

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  ArrowLeft, Package, TrendingUp, DollarSign, Factory,
+  Package, TrendingUp, DollarSign, Factory,
   Search, Upload, Download, Plus, Edit3, Trash2, ChevronLeft,
   ChevronRight, RefreshCw, Calculator, Target, Zap,
   ChevronDown, X, Check, AlertCircle, Info, Warehouse,
@@ -638,12 +638,7 @@ export default function SupplyChainPage() {
       {/* 顶部导航 */}
       <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-[1600px] mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => window.location.href = '/login'}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-              <ArrowLeft className="w-5 h-5 text-slate-600" />
-            </button>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center text-white">
                 <Factory className="w-4 h-4" />
               </div>

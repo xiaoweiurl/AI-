@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 PORT=5000
 COZE_WORKSPACE_PATH="${COZE_WORKSPACE_PATH:-$(pwd)}"
-DEPLOY_RUN_PORT=5000
+DEPLOY_RUN_PORT="${DEPLOY_RUN_PORT:-${PORT}}"
 
 
 cd "${COZE_WORKSPACE_PATH}"
@@ -37,4 +37,4 @@ export COZE_WORKLOAD_IDENTITY_API_KEY="${COZE_WORKLOAD_IDENTITY_API_KEY:-}"
 
 echo "Starting HTTP service on port ${PORT} for dev..."
 
-PORT=$PORT pnpm tsx watch src/server.ts
+PORT=${DEPLOY_RUN_PORT} pnpm tsx watch src/server.ts

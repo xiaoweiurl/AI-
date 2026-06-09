@@ -179,7 +179,7 @@ export default function SupplyChainPage() {
       setAccessories(extractItems(aRes));
       // smart-quote/product-list 返回 {products: [...]}
       // supplier-comparison 返回 {comparison: {materialCode: [...]}}
-      setSmartQuotes(sqRes?.products || []);
+      setSmartQuotes((sqRes?.products || []).map((p: any) => ({ ...p, materials: p.materials || [] })));
       // 供应商对比数据后端返回 {comparison: {materialCode: [{supplier, unitPrice},...]}}
       const comparisonMap = scRes?.comparison || {};
       const scList: SupplierCompare[] = Object.entries(comparisonMap).map(([code, suppliers]: [string, any]) => {
@@ -290,7 +290,7 @@ export default function SupplyChainPage() {
                 </tr>
               </thead>
               <tbody>
-                {quotations.map(q => (
+                {(quotations || []).map((q: any) => (
                   <tr key={q.id} className="border-b border-slate-50 hover:bg-amber-50/50 transition-colors">
                     <td className="py-3 px-3 font-medium text-slate-800">{q.productCode}</td>
                     <td className="py-3 px-3 text-slate-600">{q.productionCode}</td>
@@ -315,7 +315,7 @@ export default function SupplyChainPage() {
             <Zap className="w-5 h-5 text-violet-500" />供应商最优推荐
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {supplierCompares.map((sc, i) => (
+            {(supplierCompares || []).map((sc, i) => (
               <div key={i} className="border border-slate-100 rounded-lg p-4 hover:border-amber-300 transition-colors">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium text-slate-800">{sc.materialCode}</span>
@@ -323,7 +323,7 @@ export default function SupplyChainPage() {
                 </div>
                 <div className="text-sm text-slate-500 mb-1">最优: <span className="text-green-600 font-medium">{sc.bestSupplier}</span> ¥{formatMoneyShort(sc.bestPrice)}</div>
                 <div className="flex gap-2 flex-wrap">
-                  {sc.suppliers.filter(s => s.supplier !== sc.bestSupplier).map((s, j) => (
+                  {(sc.suppliers || []).filter((s: any) => s.supplier !== sc.bestSupplier).map((s: any, j: number) => (
                     <span key={j} className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded">
                       {s.supplier} ¥{formatMoneyShort(s.unitPrice)}
                     </span>
@@ -363,7 +363,7 @@ export default function SupplyChainPage() {
       </div>
 
       {/* 逐产品报价卡片 */}
-      {smartQuotes.map((sq, idx) => {
+      {(smartQuotes || []).map((sq, idx) => {
         const profitColor = sq.profitRate >= 0.3 ? 'text-green-600' : sq.profitRate >= 0.2 ? 'text-amber-600' : 'text-red-600';
         const profitBg = sq.profitRate >= 0.3 ? 'bg-green-50 border-green-200' : sq.profitRate >= 0.2 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
         return (
@@ -394,7 +394,7 @@ export default function SupplyChainPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {sq.materials.map((m, mi) => (
+                    {((sq.materials || [])).map((m: any, mi: number) => (
                       <tr key={mi} className="border-b border-slate-50 hover:bg-amber-50/30">
                         <td className="py-2 px-3 text-slate-800 font-medium">{m.name}</td>
                         <td className="py-2 px-3 text-right font-mono text-slate-600">{m.usage}</td>
@@ -461,7 +461,7 @@ export default function SupplyChainPage() {
               </tr>
             </thead>
             <tbody>
-              {supplierCompares.map((sc, i) => (
+              {(supplierCompares || []).map((sc, i) => (
                 <tr key={i} className="border-b border-slate-50 hover:bg-blue-50/30">
                   <td className="py-3 px-3 font-medium text-slate-800">{sc.materialCode}</td>
                   <td className="py-3 px-3">
@@ -476,7 +476,7 @@ export default function SupplyChainPage() {
                   </td>
                   <td className="py-3 px-3">
                     <div className="flex flex-wrap gap-1">
-                      {sc.suppliers.map((s, j) => (
+                      {(sc.suppliers || []).map((s: any, j: number) => (
                         <span key={j} className={`text-xs px-2 py-0.5 rounded ${s.supplier === sc.bestSupplier ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                           {s.supplier} ¥{formatMoneyShort(s.unitPrice)}
                         </span>
@@ -605,11 +605,11 @@ export default function SupplyChainPage() {
               </tr>
             </thead>
             <tbody>
-              {data.length === 0 ? (
+              {(data || []).length === 0 ? (
                 <tr><td colSpan={columns.length + 1} className="py-10 text-center text-slate-400">暂无数据</td></tr>
-              ) : data.map((row, ri) => (
+              ) : (data || []).map((row: any, ri: number) => (
                 <tr key={row.id || ri} className="border-b border-slate-50 hover:bg-amber-50/30 transition-colors">
-                  {columns.map(col => (
+                  {columns.map((col: any) => (
                     <td key={col.key} className={`py-2.5 px-3 ${col.align === 'right' ? 'text-right font-mono' : ''} text-slate-700`}>
                       {col.format ? col.format(row[col.key]) : (row[col.key] ?? '-')}
                     </td>

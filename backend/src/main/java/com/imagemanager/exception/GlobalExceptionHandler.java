@@ -19,6 +19,16 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 public class GlobalExceptionHandler {
     
     /**
+     * 处理认证异常 - 返回 401
+     */
+    @ExceptionHandler(AuthException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ApiResponse<Void> handleAuthException(AuthException e) {
+        log.warn("认证失败：{}", e.getMessage());
+        return ApiResponse.error(401, e.getMessage());
+    }
+    
+    /**
      * 处理运行时异常
      */
     @ExceptionHandler(RuntimeException.class)

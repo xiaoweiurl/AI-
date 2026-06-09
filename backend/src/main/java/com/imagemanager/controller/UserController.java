@@ -3,6 +3,7 @@ package com.imagemanager.controller;
 import com.imagemanager.dto.*;
 import com.imagemanager.entity.Notification;
 import com.imagemanager.entity.User;
+import com.imagemanager.exception.AuthException;
 import com.imagemanager.service.AuthService;
 import com.imagemanager.service.FileStorageService;
 import com.imagemanager.service.UserService;
@@ -311,12 +312,12 @@ public class UserController {
         }
         
         if (sessionId == null) {
-            throw new RuntimeException("未登录");
+            throw new AuthException("未登录");
         }
         
         LoginResponse.UserInfo user = authService.validateSession(sessionId);
         if (user == null) {
-            throw new RuntimeException("会话已过期");
+            throw new AuthException("会话已过期");
         }
         
         return user.getId();

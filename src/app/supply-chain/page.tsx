@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { backendFetch } from '@/lib/backend-proxy';
 import {
   ArrowLeft, Package, TrendingUp, DollarSign, Factory,
   Search, Upload, Download, Plus, Edit3, Trash2, ChevronLeft,
@@ -131,19 +130,40 @@ export default function SupplyChainPage() {
     }
   }, []);
 
+  // 安全的 fetch + json 解析，401 时跳转登录
+  const safeFetch = useCallback(async (url: string) => {
+    try {
+      const sessionId = localStorage.getItem('session_id');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (sessionId) headers['X-Session-Id'] = sessionId;
+      const res = await fetch(`/api/supply-chain${url}`, { headers });
+      if (res.status === 401) {
+        localStorage.removeItem('session_id');
+        localStorage.removeItem('portal_type');
+        localStorage.removeItem('session_expires');
+        window.location.href = '/login';
+        return null;
+      }
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
   // 加载所有数据
   const loadAllData = useCallback(async () => {
     setLoading(true);
     try {
       const [qRes, wRes, pRes, plRes, aRes, sqRes, scRes, stRes] = await Promise.all([
-        backendFetch('/supply-chain/quotations?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
-        backendFetch('/supply-chain/warehouse?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
-        backendFetch('/supply-chain/purchases?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
-        backendFetch('/supply-chain/plans?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
-        backendFetch('/supply-chain/accessories?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
-        backendFetch(`/supply-chain/smart-quote/product-list`).then(r => r.json()).catch(() => ({})),
-        backendFetch('/supply-chain/smart-quote/supplier-comparison').then(r => r.json()).catch(() => ({})),
-        backendFetch('/supply-chain/stats').then(r => r.json()).catch(() => ({})),
+        safeFetch('/quotations?page=1&pageSize=100'),
+        safeFetch('/warehouse?page=1&pageSize=100'),
+        safeFetch('/purchases?page=1&pageSize=100'),
+        safeFetch('/plans?page=1&pageSize=100'),
+        safeFetch('/accessories?page=1&pageSize=100'),
+        safeFetch(`/smart-quote/product-list?targetProfitRate=${targetProfitRate}&processingCost=${processingCost}`),
+        safeFetch('/smart-quote/supplier-comparison'),
+        safeFetch(`/stats?targetProfitRate=${targetProfitRate}&processingCost=${processingCost}`),
       ]);
       // 后端 pageResult 返回 {items: [...], total: N}
       // 后端 smart-quotes 返回 {items: [...]}
@@ -172,7 +192,7 @@ export default function SupplyChainPage() {
           bestPrice: best?.unitPrice || 0,
           bestSupplier: best?.supplier || '',
           worstPrice: worst?.unitPrice || 0,
-          savingRate: worst?.unitPrice ? ((worst.unitPrice - (best?.unitPrice || 0)) / worst.unitPrice * 100) : 0,
+          savingRate: worst?.unitPrice ? ((worst.unitPrice - (best?.unitPrice || 0)) / worst.unitPrice) : 0,
         };
       });
       setSupplierCompares(scList);
@@ -191,7 +211,10 @@ export default function SupplyChainPage() {
   const handleDelete = async (type: string, id: number) => {
     if (!confirm('确定删除此条数据？')) return;
     try {
-      await backendFetch(`/supply-chain/${type}/${id}`, { method: 'DELETE' });
+      const sessionId = localStorage.getItem('session_id');
+      const headers: Record<string, string> = {};
+      if (sessionId) headers['X-Session-Id'] = sessionId;
+      await fetch(`/api/supply-chain/${type}/${id}`, { method: 'DELETE', headers });
       loadAllData();
     } catch { alert('删除失败'); }
   };
@@ -205,7 +228,10 @@ export default function SupplyChainPage() {
     formData.append('file', file);
     formData.append('type', activeTab === 'quotation' ? 'quotation' : activeTab === 'warehouse' ? 'warehouse' : activeTab === 'purchase' ? 'purchase' : activeTab === 'plan' ? 'plan' : 'accessory');
     try {
-      const res = await backendFetch('/supply-chain/import', { method: 'POST', body: formData });
+      const sessionId = localStorage.getItem('session_id');
+      const headers: Record<string, string> = {};
+      if (sessionId) headers['X-Session-Id'] = sessionId;
+      const res = await fetch('/api/supply-chain/import', { method: 'POST', headers, body: formData });
       const result = await res.json();
       if (result.code === 200) { alert(`成功导入 ${result.data} 条数据`); loadAllData(); }
       else alert('导入失败: ' + (result.message || '未知错误'));
@@ -223,7 +249,7 @@ export default function SupplyChainPage() {
 
   // ============ 渲染：智能仪表盘 ============
   const renderDashboard = () => {
-    const profitRateColor = stats.avgProfitRate >= 30 ? 'text-green-600' : stats.avgProfitRate >= 20 ? 'text-amber-600' : 'text-red-600';
+    const profitRateColor = stats.avgProfitRate >= 0.3 ? 'text-green-600' : stats.avgProfitRate >= 0.2 ? 'text-amber-600' : 'text-red-600';
     return (
       <div className="space-y-6">
         {/* 统计卡片 */}
@@ -232,7 +258,7 @@ export default function SupplyChainPage() {
             { label: '产品数量', value: stats.productCount, icon: <Package className="w-5 h-5" />, color: 'from-amber-500 to-orange-600', suffix: '款' },
             { label: '原料种类', value: stats.materialCount, icon: <Warehouse className="w-5 h-5" />, color: 'from-blue-500 to-cyan-600', suffix: '种' },
             { label: '供应商数', value: stats.supplierCount, icon: <ShoppingBag className="w-5 h-5" />, color: 'from-violet-500 to-purple-600', suffix: '家' },
-            { label: '平均利润率', value: stats.avgProfitRate.toFixed(1), icon: <TrendingUp className="w-5 h-5" />, color: 'from-green-500 to-emerald-600', suffix: '%', valueColor: profitRateColor },
+            { label: '平均利润率', value: (stats.avgProfitRate * 100).toFixed(1), icon: <TrendingUp className="w-5 h-5" />, color: 'from-green-500 to-emerald-600', suffix: '%', valueColor: profitRateColor },
           ].map((card, i) => (
             <div key={i} className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-lg transition-all duration-200">
               <div className="flex items-center justify-between mb-3">
@@ -338,8 +364,8 @@ export default function SupplyChainPage() {
 
       {/* 逐产品报价卡片 */}
       {smartQuotes.map((sq, idx) => {
-        const profitColor = sq.profitRate >= 30 ? 'text-green-600' : sq.profitRate >= 20 ? 'text-amber-600' : 'text-red-600';
-        const profitBg = sq.profitRate >= 30 ? 'bg-green-50 border-green-200' : sq.profitRate >= 20 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+        const profitColor = sq.profitRate >= 0.3 ? 'text-green-600' : sq.profitRate >= 0.2 ? 'text-amber-600' : 'text-red-600';
+        const profitBg = sq.profitRate >= 0.3 ? 'bg-green-50 border-green-200' : sq.profitRate >= 0.2 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
         return (
           <div key={idx} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
             <div className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 px-5 py-4 border-b border-slate-100 flex items-center justify-between">

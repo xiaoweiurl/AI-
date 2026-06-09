@@ -136,24 +136,33 @@ export default function SupplyChainPage() {
     setLoading(true);
     try {
       const [qRes, wRes, pRes, plRes, aRes, sqRes, scRes, stRes] = await Promise.all([
-        backendFetch('/supply-chain/quotations?page=1&pageSize=100').then(r => r.json()).catch(() => ({ data: { content: [], totalElements: 0 } })),
-        backendFetch('/supply-chain/warehouse?page=1&pageSize=100').then(r => r.json()).catch(() => ({ data: { content: [], totalElements: 0 } })),
-        backendFetch('/supply-chain/purchases?page=1&pageSize=100').then(r => r.json()).catch(() => ({ data: { content: [], totalElements: 0 } })),
-        backendFetch('/supply-chain/plans?page=1&pageSize=100').then(r => r.json()).catch(() => ({ data: { content: [], totalElements: 0 } })),
-        backendFetch('/supply-chain/accessories?page=1&pageSize=100').then(r => r.json()).catch(() => ({ data: { content: [], totalElements: 0 } })),
-        backendFetch(`/supply-chain/smart-quotes?profitRate=${targetProfitRate}&processingCost=${processingCost}`).then(r => r.json()).catch(() => ({ data: [] })),
-        backendFetch('/supply-chain/supplier-comparison').then(r => r.json()).catch(() => ({ data: [] })),
-        backendFetch('/supply-chain/stats').then(r => r.json()).catch(() => ({ data: { productCount: 0, materialCount: 0, supplierCount: 0, avgProfitRate: 0 } })),
+        backendFetch('/supply-chain/quotations?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
+        backendFetch('/supply-chain/warehouse?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
+        backendFetch('/supply-chain/purchases?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
+        backendFetch('/supply-chain/plans?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
+        backendFetch('/supply-chain/accessories?page=1&pageSize=100').then(r => r.json()).catch(() => ({ content: [], total: 0 })),
+        backendFetch(`/supply-chain/smart-quotes?profitRate=${targetProfitRate}&processingCost=${processingCost}`).then(r => r.json()).catch(() => ({})),
+        backendFetch('/supply-chain/supplier-comparison').then(r => r.json()).catch(() => ({})),
+        backendFetch('/supply-chain/stats').then(r => r.json()).catch(() => ({})),
       ]);
-      setQuotations(qRes.data?.content || []);
-      setWarehouse(wRes.data?.content || []);
-      setPurchases(pRes.data?.content || []);
-      setPlans(plRes.data?.content || []);
-      setAccessories(aRes.data?.content || []);
-      setSmartQuotes(sqRes.data || []);
-      setSupplierCompares(scRes.data || []);
-      const s = stRes.data || {};
-      setStats({ productCount: s.productCount || 0, materialCount: s.materialCount || 0, supplierCount: s.supplierCount || 0, avgProfitRate: s.avgProfitRate || 0 });
+      // 后端 pageResult 返回 {items: [...], total: N}
+      // 后端 smart-quotes 返回 {items: [...]}
+      // 后端 supplier-comparison 返回 [...]
+      // 后端 stats 返回 {productCount, materialCount, ...}
+      const extractItems = (res: any) => res?.items || res?.data?.items || res?.data?.content || res?.content || [];
+      const extractData = (res: any) => res?.data || res || [];
+
+      setQuotations(extractItems(qRes));
+      setWarehouse(extractItems(wRes));
+      setPurchases(extractItems(pRes));
+      setPlans(extractItems(plRes));
+      setAccessories(extractItems(aRes));
+      const sqData = extractData(sqRes);
+      setSmartQuotes(Array.isArray(sqData) ? sqData : (sqData?.items || []));
+      const scData = extractData(scRes);
+      setSupplierCompares(Array.isArray(scData) ? scData : []);
+      const s = extractData(stRes);
+      setStats({ productCount: s?.productCount || 0, materialCount: s?.materialCount || 0, supplierCount: s?.supplierCount || 0, avgProfitRate: s?.avgProfitRate || 0 });
     } catch (e) {
       console.error('加载数据失败', e);
     } finally {

@@ -160,8 +160,22 @@ export default function SupplyChainPage() {
       // smart-quote/product-list 返回 {products: [...]}
       // supplier-comparison 返回 {comparison: {materialCode: [...]}}
       setSmartQuotes(sqRes?.products || []);
-      // 供应商对比数据是 Map<materialCode, List<...>>
-      setSupplierCompares(scRes?.comparison || {});
+      // 供应商对比数据后端返回 {comparison: {materialCode: [{supplier, unitPrice},...]}}
+      const comparisonMap = scRes?.comparison || {};
+      const scList: SupplierCompare[] = Object.entries(comparisonMap).map(([code, suppliers]: [string, any]) => {
+        const sups = (suppliers || []).sort((a: any, b: any) => (a.unitPrice || 0) - (b.unitPrice || 0));
+        const best = sups[0];
+        const worst = sups[sups.length - 1];
+        return {
+          materialCode: code,
+          suppliers: sups,
+          bestPrice: best?.unitPrice || 0,
+          bestSupplier: best?.supplier || '',
+          worstPrice: worst?.unitPrice || 0,
+          savingRate: worst?.unitPrice ? ((worst.unitPrice - (best?.unitPrice || 0)) / worst.unitPrice * 100) : 0,
+        };
+      });
+      setSupplierCompares(scList);
       const s = extractData(stRes);
       setStats({ productCount: s?.productCount || 0, materialCount: s?.materialCount || 0, supplierCount: s?.supplierCount || 0, avgProfitRate: s?.avgProfitRate || 0 });
     } catch (e) {

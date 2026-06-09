@@ -645,7 +645,6 @@ export default function SupplyChainPage() {
               <h1 className="text-lg font-bold text-slate-800">盈云产品智能中台</h1>
               <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">供应链 & 工厂</span>
             </div>
-          </div>
           <button onClick={handleLogout}
             className="text-sm text-slate-500 hover:text-red-500 transition-colors px-3 py-1.5 hover:bg-red-50 rounded-lg">
             退出登录

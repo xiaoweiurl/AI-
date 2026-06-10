@@ -437,7 +437,7 @@ export default function SupplyChainPage() {
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-slate-50 rounded-lg p-3 text-center">
                   <div className="text-xs text-slate-500 mb-1">原料成本</div>
-                  <div className="text-lg font-bold text-slate-700">¥{formatMoneyShort(sq.totalMaterialCost - sq.accessoryCost - sq.processingCostPerUnit)}</div>
+                  <div className="text-lg font-bold text-slate-700">¥{formatMoneyShort(sq.totalMaterialCost)}</div>
                 </div>
                 <div className="bg-amber-50 rounded-lg p-3 text-center">
                   <div className="text-xs text-slate-500 mb-1">总成本/条</div>

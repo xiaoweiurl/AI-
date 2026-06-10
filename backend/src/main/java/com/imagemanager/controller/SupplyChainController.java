@@ -664,18 +664,33 @@ public class SupplyChainController {
                         q.getRawMaterialName4(), q.getRawMaterialName5(), q.getRawMaterialName6()};
                 BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
                         q.getMaterialUsage4(), q.getMaterialUsage5(), q.getMaterialUsage6()};
-                BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
-                        q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
                 for (int i = 0; i < 6; i++) {
-                    if (matUsages[i] != null && matPrices[i] != null && matNames[i] != null) {
-                        BigDecimal cost = matUsages[i].multiply(matPrices[i]);
-                        materialCost = materialCost.add(cost);
-                        materialDetails.add(Map.of(
-                            "name", matNames[i],
-                            "usage", matUsages[i],
-                            "unitPrice", matPrices[i],
-                            "cost", cost
-                        ));
+                    if (matNames[i] != null && !matNames[i].isEmpty() && matUsages[i] != null) {
+                        // 从原料采购表查询最低采购价和最优供应商
+                        BigDecimal purchasePrice = rawMaterialPurchaseRepository.findMinPriceByMaterialCode(matNames[i]);
+                        String bestSupplier = "";
+                        if (purchasePrice != null) {
+                            java.util.List<String> cheapestSuppliers = rawMaterialPurchaseRepository.findCheapestSupplierByMaterialCode(matNames[i]);
+                            if (!cheapestSuppliers.isEmpty()) {
+                                bestSupplier = cheapestSuppliers.get(0);
+                            }
+                        } else {
+                            // 采购表中无此原料，使用报价表自带单价
+                            BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
+                                    q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
+                            purchasePrice = matPrices[i];
+                        }
+                        if (purchasePrice != null) {
+                            BigDecimal cost = matUsages[i].multiply(purchasePrice);
+                            materialCost = materialCost.add(cost);
+                            Map<String, Object> detail = new LinkedHashMap<>();
+                            detail.put("name", matNames[i]);
+                            detail.put("usage", matUsages[i]);
+                            detail.put("unitPrice", purchasePrice);
+                            detail.put("cost", cost);
+                            detail.put("bestSupplier", bestSupplier);
+                            materialDetails.add(detail);
+                        }
                     }
                 }
                 BigDecimal accessoryCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : BigDecimal.ZERO;

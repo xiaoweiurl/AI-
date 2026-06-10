@@ -666,27 +666,36 @@ public class SupplyChainController {
                         q.getMaterialUsage4(), q.getMaterialUsage5(), q.getMaterialUsage6()};
                 for (int i = 0; i < 6; i++) {
                     if (matNames[i] != null && !matNames[i].isEmpty() && matUsages[i] != null) {
-                        // 从原料采购表查询最低采购价和最优供应商
-                        BigDecimal purchasePrice = rawMaterialPurchaseRepository.findMinPriceByMaterialCode(matNames[i]);
+                        // 使用报价表自带单价（已经是元/克），同时从采购表获取参考信息
+                        BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
+                                q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
+                        BigDecimal unitPrice = matPrices[i];
+                        
+                        // 从采购表获取最低采购价作为参考
+                        BigDecimal purchaseRefPrice = rawMaterialPurchaseRepository.findMinPriceByMaterialCode(matNames[i]);
                         String bestSupplier = "";
-                        if (purchasePrice != null) {
+                        String purchaseUnit = "";
+                        if (purchaseRefPrice != null) {
                             java.util.List<String> cheapestSuppliers = rawMaterialPurchaseRepository.findCheapestSupplierByMaterialCode(matNames[i]);
                             if (!cheapestSuppliers.isEmpty()) {
                                 bestSupplier = cheapestSuppliers.get(0);
                             }
-                        } else {
-                            // 采购表中无此原料，使用报价表自带单价
-                            BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
-                                    q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
-                            purchasePrice = matPrices[i];
+                            java.util.List<String> cheapestUnits = rawMaterialPurchaseRepository.findCheapestUnitByMaterialCode(matNames[i]);
+                            if (!cheapestUnits.isEmpty()) {
+                                purchaseUnit = cheapestUnits.get(0);
+                            }
                         }
-                        if (purchasePrice != null) {
-                            BigDecimal cost = matUsages[i].multiply(purchasePrice);
+                        
+                        // 成本 = 用料量(克) × 单价(元/克)
+                        if (unitPrice != null) {
+                            BigDecimal cost = matUsages[i].multiply(unitPrice);
                             materialCost = materialCost.add(cost);
                             Map<String, Object> detail = new LinkedHashMap<>();
                             detail.put("name", matNames[i]);
                             detail.put("usage", matUsages[i]);
-                            detail.put("unitPrice", purchasePrice);
+                            detail.put("unitPrice", unitPrice);
+                            detail.put("purchaseRefPrice", purchaseRefPrice);
+                            detail.put("purchaseUnit", purchaseUnit);
                             detail.put("cost", cost);
                             detail.put("bestSupplier", bestSupplier);
                             materialDetails.add(detail);

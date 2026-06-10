@@ -19,4 +19,7 @@ public interface RawMaterialPurchaseRepository extends JpaRepository<RawMaterial
 
     @org.springframework.data.jpa.repository.Query("SELECT p.supplier FROM RawMaterialPurchase p WHERE p.materialCode = :materialCode AND p.unitPrice = (SELECT MIN(p2.unitPrice) FROM RawMaterialPurchase p2 WHERE p2.materialCode = :materialCode)")
     java.util.List<String> findCheapestSupplierByMaterialCode(@org.springframework.data.repository.query.Param("materialCode") String materialCode);
+
+    @org.springframework.data.jpa.repository.Query("SELECT p.unit FROM RawMaterialPurchase p WHERE p.materialCode = :materialCode AND p.unitPrice = (SELECT MIN(p2.unitPrice) FROM RawMaterialPurchase p2 WHERE p2.materialCode = :materialCode)")
+    java.util.List<String> findCheapestUnitByMaterialCode(@org.springframework.data.repository.query.Param("materialCode") String materialCode);
 }

@@ -47,7 +47,7 @@ interface AccessoryItem {
 
 interface SmartQuoteResult {
   productCode: string; productionCode: string; customer: string;
-  materials: { name: string; usage: number; purchasePrice: number; cost: number; bestSupplier: string }[];
+  materials: { name: string; usage: number; unitPrice: number; purchaseRefPrice?: number; cost: number; bestSupplier: string }[];
   accessoryCost: number; accessoryName: string;
   totalMaterialCost: number; processingCostPerUnit: number;
   totalCostPerUnit: number; suggestedPrice: number; profitRate: number;
@@ -194,7 +194,6 @@ export default function SupplyChainPage() {
         ...p,
         materials: (p.materialDetails || p.materials || []).map((m: any) => ({
           ...m,
-          purchasePrice: m.purchasePrice ?? m.unitPrice,
           bestSupplier: m.bestSupplier ?? m.supplier ?? '',
         })),
         totalMaterialCost: p.totalMaterialCost ?? p.materialCost,
@@ -409,7 +408,8 @@ export default function SupplyChainPage() {
                     <tr className="border-b-2 border-slate-200">
                       <th className="text-left py-2 px-3 text-slate-600 font-semibold">原料名称</th>
                       <th className="text-right py-2 px-3 text-slate-600 font-semibold">用量</th>
-                      <th className="text-right py-2 px-3 text-slate-600 font-semibold">采购最低价</th>
+                      <th className="text-right py-2 px-3 text-slate-600 font-semibold">单价(元/克)</th>
+                      <th className="text-right py-2 px-3 text-slate-600 font-semibold">采购参考价</th>
                       <th className="text-right py-2 px-3 text-slate-600 font-semibold">原料成本</th>
                       <th className="text-left py-2 px-3 text-slate-600 font-semibold">最优供应商</th>
                     </tr>
@@ -419,7 +419,8 @@ export default function SupplyChainPage() {
                       <tr key={mi} className="border-b border-slate-50 hover:bg-amber-50/30">
                         <td className="py-2 px-3 text-slate-800 font-medium">{m.name}</td>
                         <td className="py-2 px-3 text-right font-mono text-slate-600">{m.usage}</td>
-                        <td className="py-2 px-3 text-right font-mono text-slate-600">¥{formatMoney(m.purchasePrice)}</td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-600">¥{formatMoney(m.unitPrice)}</td>
+                        <td className="py-2 px-3 text-right font-mono text-slate-400">{m.purchaseRefPrice ? `¥${formatMoney(m.purchaseRefPrice)}/kg` : '-'}</td>
                         <td className="py-2 px-3 text-right font-mono text-amber-700 font-semibold">¥{formatMoney(m.cost)}</td>
                         <td className="py-2 px-3 text-slate-500 text-xs">{m.bestSupplier || '-'}</td>
                       </tr>

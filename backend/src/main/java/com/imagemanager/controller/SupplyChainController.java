@@ -664,12 +664,12 @@ public class SupplyChainController {
                         q.getRawMaterialName4(), q.getRawMaterialName5(), q.getRawMaterialName6()};
                 BigDecimal[] matUsages = {q.getMaterialUsage1(), q.getMaterialUsage2(), q.getMaterialUsage3(),
                         q.getMaterialUsage4(), q.getMaterialUsage5(), q.getMaterialUsage6()};
+                BigDecimal[] matQuotationPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
+                        q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
                 for (int i = 0; i < 6; i++) {
                     if (matNames[i] != null && !matNames[i].isEmpty() && matUsages[i] != null) {
-                        // 使用报价表自带单价（已经是元/克），同时从采购表获取参考信息
-                        BigDecimal[] matPrices = {q.getMaterialUnitPrice1(), q.getMaterialUnitPrice2(), q.getMaterialUnitPrice3(),
-                                q.getMaterialUnitPrice4(), q.getMaterialUnitPrice5(), q.getMaterialUnitPrice6()};
-                        BigDecimal unitPrice = matPrices[i];
+                        // 报价表单价(元/克)，计算时: mᵢ × pᵢ/1000 其中 pᵢ=单价×1000(元/千克)
+                        BigDecimal unitPricePerGram = matQuotationPrices[i];
                         
                         // 从采购表获取最低采购价作为参考
                         BigDecimal purchaseRefPrice = rawMaterialPurchaseRepository.findMinPriceByMaterialCode(matNames[i]);
@@ -686,15 +686,18 @@ public class SupplyChainController {
                             }
                         }
                         
-                        // 成本 = 用料量(克) × 单价(元/克)
-                        if (unitPrice != null) {
-                            BigDecimal cost = matUsages[i].multiply(unitPrice);
+                        // 原料成本 = mᵢ(克) × pᵢ(元/千克) / 1000
+                        // 等价于 mᵢ × unitPrice(元/克)
+                        if (unitPricePerGram != null) {
+                            BigDecimal cost = matUsages[i].multiply(unitPricePerGram);
+                            BigDecimal pricePerKg = unitPricePerGram.multiply(new BigDecimal("1000"));
                             materialCost = materialCost.add(cost);
                             Map<String, Object> detail = new LinkedHashMap<>();
                             detail.put("name", matNames[i]);
                             detail.put("usage", matUsages[i]);
-                            detail.put("unitPrice", unitPrice);
-                            detail.put("purchaseRefPrice", purchaseRefPrice);
+                            detail.put("unitPrice", pricePerKg);                  // 元/千克 (公式中的pᵢ)
+                            detail.put("unitPricePerGram", unitPricePerGram);       // 元/克 (原始数据)
+                            detail.put("purchaseRefPrice", purchaseRefPrice);        // 采购参考价(元/千克)
                             detail.put("purchaseUnit", purchaseUnit);
                             detail.put("cost", cost);
                             detail.put("bestSupplier", bestSupplier);
@@ -704,27 +707,35 @@ public class SupplyChainController {
                 }
                 BigDecimal accessoryCost = q.getAccessoryPrice() != null ? q.getAccessoryPrice() : BigDecimal.ZERO;
                 String accessoryName = q.getAccessoryName() != null ? q.getAccessoryName() : "";
-                // === 完整成本计算 ===
-                // 1. 原料成本 = Σ(用料量 × 单价(元/克))
-                // 2. 辅料成本
-                // 3. 织造成本 = (织时/3600 × 机台日费率) / 日产量
-                // 4. 后整理成本 = 缝拼 + 染色 + 定型 + 包装
-                // 5. 净成本 = (原料 + 辅料 + 织造 + 后整理) / 正品率
+                // === 完整成本计算（新公式） ===
+                // 成本价 = 原料成本 + 辅料成本 + 织造成本 + 后整理成本
+                // 原料成本 = Σ(mᵢ × pᵢ/1000)  用量(克) × 单价(元/千克)/1000
+                // 辅料成本 = Σ(qⱼ × cⱼ)        辅料数量 × 辅料单价
+                // 织造成本 = R/P                 机台小时费率(元/小时) / 单机产量(双/小时)
+                // 后整理成本 = M/1000 × D        下机克重(克)/1000 × 染色单价(元/公斤)
+                // 净成本 = 成本价 / 正品率 × 100
 
-                BigDecimal weavingCostVal = q.getWeavingCost() != null ? q.getWeavingCost() : BigDecimal.ZERO;
-                BigDecimal sewingCostVal = q.getSewingCost() != null ? q.getSewingCost() : BigDecimal.ZERO;
-                BigDecimal dyeingCostVal = q.getDyeingCost() != null ? q.getDyeingCost() : BigDecimal.ZERO;
-                BigDecimal settingCostVal = q.getSettingCost() != null ? q.getSettingCost() : BigDecimal.ZERO;
-                BigDecimal packagingCostVal = q.getPackagingCost() != null ? q.getPackagingCost() : BigDecimal.ZERO;
+                // 3. 织造成本 = R/P
+                BigDecimal R = q.getMachineHourlyRate() != null ? q.getMachineHourlyRate() : new BigDecimal("50");
+                BigDecimal P = q.getSingleMachineOutputHourly() != null ? q.getSingleMachineOutputHourly() : new BigDecimal("1000");
+                BigDecimal weavingCostVal = P.compareTo(BigDecimal.ZERO) > 0
+                        ? R.divide(P, 4, /* ROUND_HALF_UP */4)
+                        : BigDecimal.ZERO;
+
+                // 4. 后整理成本 = M/1000 × D
+                BigDecimal M = q.getSewingWeight() != null ? q.getSewingWeight() : BigDecimal.ZERO;
+                BigDecimal D = q.getDyeingUnitPrice() != null ? q.getDyeingUnitPrice() : BigDecimal.ZERO;
+                BigDecimal postProcessCost = M.multiply(D).divide(new BigDecimal("1000"), 4, /* ROUND_HALF_UP */4);
+
+                BigDecimal manufacturingCost = weavingCostVal.add(postProcessCost);
                 BigDecimal yieldRate = q.getYieldRate() != null ? q.getYieldRate() : new BigDecimal("100");
 
-                BigDecimal postProcessCost = sewingCostVal.add(dyeingCostVal).add(settingCostVal).add(packagingCostVal);
-                BigDecimal manufacturingCost = weavingCostVal.add(postProcessCost);
-                // 净成本 = (原料 + 辅料 + 制造) / 正品率
-                BigDecimal costBeforeYield = materialCost.add(accessoryCost).add(manufacturingCost);
+                // 成本价 = 原料 + 辅料 + 织造 + 后整理
+                BigDecimal costPrice = materialCost.add(accessoryCost).add(manufacturingCost);
+                // 净成本 = 成本价 / 正品率 × 100
                 BigDecimal netCostVal = yieldRate.compareTo(BigDecimal.ZERO) > 0
-                        ? costBeforeYield.multiply(new BigDecimal("100")).divide(yieldRate, 4, /* ROUND_HALF_UP */4)
-                        : costBeforeYield;
+                        ? costPrice.multiply(new BigDecimal("100")).divide(yieldRate, 4, /* ROUND_HALF_UP */4)
+                        : costPrice;
 
                 BigDecimal totalCost = netCostVal;
 
@@ -751,23 +762,23 @@ public class SupplyChainController {
                 item.put("materialCost", materialCost);
                 item.put("accessoryCost", accessoryCost);
                 item.put("accessoryName", accessoryName);
-                item.put("weavingCost", weavingCostVal);
-                item.put("sewingCost", sewingCostVal);
-                item.put("dyeingCost", dyeingCostVal);
-                item.put("settingCost", settingCostVal);
-                item.put("packagingCost", packagingCostVal);
-                item.put("postProcessCost", postProcessCost);
-                item.put("manufacturingCost", manufacturingCost);
-                item.put("yieldRate", yieldRate);
-                item.put("netCost", netCostVal);
+                // 新公式字段
+                item.put("machineHourlyRate", R);           // R: 机台小时费率(元/小时)
+                item.put("singleMachineOutput", P);         // P: 单机产量(双/小时)
+                item.put("weavingCost", weavingCostVal);    // 织造成本 = R/P
+                item.put("productWeight", M);               // M: 下机克重(克)
+                item.put("dyeingUnitPrice", D);             // D: 染色单价(元/公斤)
+                item.put("postProcessCost", postProcessCost); // 后整理成本 = M/1000 × D
+                item.put("manufacturingCost", manufacturingCost); // 制造合计 = 织造 + 后整理
+                item.put("costPrice", costPrice);           // 成本价 = 原料+辅料+织造+后整理
+                item.put("yieldRate", yieldRate);           // 正品率(%)
+                item.put("netCost", netCostVal);            // 净成本 = 成本价/正品率×100
                 item.put("totalCost", totalCost);
                 item.put("suggestedPrice", suggestedPrice);
                 item.put("actualProfitRate", actualProfitRate);
                 item.put("profitRate", actualProfitRate);
                 item.put("dailyCapacity", dailyCapacity);
                 item.put("sewingWeight", q.getSewingWeight() != null ? q.getSewingWeight() : "");
-                item.put("weavingSeconds", q.getWeavingSeconds());
-                item.put("equipmentDailyCost", q.getEquipmentDailyCost());
                 item.put("materialDetails", materialDetails);
                 productList.add(item);
             }

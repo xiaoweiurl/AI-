@@ -47,14 +47,16 @@ interface AccessoryItem {
 
 interface SmartQuoteResult {
   productCode: string; productionCode: string; customer: string;
-  materials: { name: string; usage: number; unitPrice: number; purchaseRefPrice?: number; cost: number; bestSupplier: string }[];
+  materials: { name: string; usage: number; unitPrice: number; unitPricePerGram?: number; purchaseRefPrice?: number; cost: number; bestSupplier: string }[];
   accessoryCost: number; accessoryName: string;
   totalMaterialCost: number; processingCostPerUnit: number;
   totalCostPerUnit: number; suggestedPrice: number; profitRate: number;
   dailyCapacity: number; sewingWeight: number;
-  weavingCost: number; sewingCost: number; dyeingCost: number;
-  settingCost: number; packagingCost: number; manufacturingCost: number;
-  postProcessCost: number; yieldRate: number; netCost: number;
+  machineHourlyRate: number; singleMachineOutput: number;
+  weavingCost: number; productWeight: number;
+  dyeingUnitPrice: number; postProcessCost: number;
+  manufacturingCost: number; costPrice: number;
+  yieldRate: number; netCost: number;
 }
 
 interface SupplierCompare {
@@ -396,7 +398,7 @@ export default function SupplyChainPage() {
                 <h4 className="text-lg font-bold text-slate-800">{sq.productCode}
                   <span className="text-sm font-normal text-slate-500 ml-2">({sq.productionCode})</span>
                 </h4>
-                <div className="text-sm text-slate-500 mt-0.5">客户: {sq.customer} | 缝头重量: {sq.sewingWeight}g | 日产能: {sq.dailyCapacity}条</div>
+                <div className="text-sm text-slate-500 mt-0.5">客户: {sq.customer} | 下机克重: {sq.productWeight || sq.sewingWeight}g | 日产能: {sq.dailyCapacity}条</div>
               </div>
               <div className={`px-4 py-2 rounded-lg border ${profitBg}`}>
                 <div className="text-xs text-slate-500">利润率</div>
@@ -410,8 +412,8 @@ export default function SupplyChainPage() {
                   <thead>
                     <tr className="border-b-2 border-slate-200">
                       <th className="text-left py-2 px-3 text-slate-600 font-semibold">原料名称</th>
-                      <th className="text-right py-2 px-3 text-slate-600 font-semibold">用量</th>
-                      <th className="text-right py-2 px-3 text-slate-600 font-semibold">单价(元/克)</th>
+                      <th className="text-right py-2 px-3 text-slate-600 font-semibold">用量(g)</th>
+                      <th className="text-right py-2 px-3 text-slate-600 font-semibold">单价(元/kg)</th>
                       <th className="text-right py-2 px-3 text-slate-600 font-semibold">采购参考价</th>
                       <th className="text-right py-2 px-3 text-slate-600 font-semibold">原料成本</th>
                       <th className="text-left py-2 px-3 text-slate-600 font-semibold">最优供应商</th>
@@ -431,48 +433,49 @@ export default function SupplyChainPage() {
                     {/* 辅料行 */}
                     <tr className="border-b border-slate-50 bg-blue-50/30">
                       <td className="py-2 px-3 text-blue-800 font-medium">{sq.accessoryName || '辅料'}</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-600">1</td>
+                      <td className="py-2 px-3 text-right font-mono text-slate-600">-</td>
                       <td className="py-2 px-3 text-right font-mono text-slate-600">-</td>
                       <td className="py-2 px-3 text-right font-mono text-blue-700 font-semibold">¥{formatMoney(sq.accessoryCost)}</td>
                       <td className="py-2 px-3 text-slate-500 text-xs">-</td>
                     </tr>
                     {/* 制造部分小计 */}
                     <tr className="border-b border-slate-50 bg-purple-50/30">
-                      <td className="py-2 px-3 text-purple-800 font-medium">制造部分合计</td>
-                      <td className="py-2 px-3 text-right font-mono text-slate-600">-</td>
+                      <td className="py-2 px-3 text-purple-800 font-medium">制造合计(织造+后整理)</td>
                       <td className="py-2 px-3 text-right font-mono text-slate-600">-</td>
                       <td className="py-2 px-3 text-right font-mono text-slate-600">-</td>
                       <td className="py-2 px-3 text-right font-mono text-purple-700 font-semibold">¥{formatMoney(sq.manufacturingCost)}</td>
-                      <td className="py-2 px-3 text-purple-600 text-xs">织造+缝拼+染色+定型+包装</td>
+                      <td className="py-2 px-3 text-purple-600 text-xs">R/P + M/1000×D</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
 
-              {/* 制造部分明细 */}
-              <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-4">
+              {/* 制造部分明细 - 新公式 */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                  <div className="text-xs text-slate-500">织造成本</div>
-                  <div className="text-sm font-bold text-slate-700">¥{formatMoney(sq.weavingCost)}</div>
+                  <div className="text-xs text-slate-500">机台费率 R(元/h)</div>
+                  <div className="text-sm font-bold text-slate-700">{sq.machineHourlyRate || 50}</div>
                 </div>
                 <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                  <div className="text-xs text-slate-500">缝拼</div>
-                  <div className="text-sm font-bold text-slate-700">¥{formatMoney(sq.sewingCost)}</div>
+                  <div className="text-xs text-slate-500">单机产量 P(双/h)</div>
+                  <div className="text-sm font-bold text-slate-700">{sq.singleMachineOutput || 1000}</div>
+                </div>
+                <div className="bg-purple-50 rounded-lg p-2.5 text-center">
+                  <div className="text-xs text-slate-500">织造成本 R/P</div>
+                  <div className="text-sm font-bold text-purple-700">¥{formatMoney(sq.weavingCost)}</div>
                 </div>
                 <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                  <div className="text-xs text-slate-500">染色</div>
-                  <div className="text-sm font-bold text-slate-700">¥{formatMoney(sq.dyeingCost)}</div>
+                  <div className="text-xs text-slate-500">下机克重 M(g)</div>
+                  <div className="text-sm font-bold text-slate-700">{sq.productWeight || sq.sewingWeight}</div>
                 </div>
                 <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                  <div className="text-xs text-slate-500">定型</div>
-                  <div className="text-sm font-bold text-slate-700">¥{formatMoney(sq.settingCost)}</div>
+                  <div className="text-xs text-slate-500">染色单价 D(元/kg)</div>
+                  <div className="text-sm font-bold text-slate-700">{sq.dyeingUnitPrice || '-'}</div>
                 </div>
-                <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                  <div className="text-xs text-slate-500">包装</div>
-                  <div className="text-sm font-bold text-slate-700">¥{formatMoney(sq.packagingCost)}</div>
+                <div className="bg-orange-50 rounded-lg p-2.5 text-center">
+                  <div className="text-xs text-slate-500">后整理 M/1000×D</div>
+                  <div className="text-sm font-bold text-orange-700">¥{formatMoney(sq.postProcessCost)}</div>
                 </div>
-              </div>
-              <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-purple-50 rounded-lg p-2.5 text-center">
                   <div className="text-xs text-slate-500">制造合计</div>
                   <div className="text-sm font-bold text-purple-700">¥{formatMoney(sq.manufacturingCost)}</div>
@@ -481,20 +484,20 @@ export default function SupplyChainPage() {
                   <div className="text-xs text-slate-500">正品率</div>
                   <div className="text-sm font-bold text-blue-700">{sq.yieldRate || 100}%</div>
                 </div>
-                <div className="bg-amber-50 rounded-lg p-2.5 text-center">
-                  <div className="text-xs text-slate-500">净成本/条</div>
-                  <div className="text-sm font-bold text-amber-700">¥{formatMoney(sq.netCost)}</div>
-                </div>
               </div>
 
               {/* 汇总行 */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div className="bg-slate-50 rounded-lg p-3 text-center">
-                  <div className="text-xs text-slate-500 mb-1">成本价(原料+辅料)</div>
-                  <div className="text-lg font-bold text-slate-700">¥{formatMoneyShort((sq.totalMaterialCost || 0) + (sq.accessoryCost || 0))}</div>
+                  <div className="text-xs text-slate-500 mb-1">原料成本</div>
+                  <div className="text-lg font-bold text-slate-700">¥{formatMoneyShort(sq.totalMaterialCost)}</div>
+                </div>
+                <div className="bg-blue-50 rounded-lg p-3 text-center">
+                  <div className="text-xs text-slate-500 mb-1">辅料成本</div>
+                  <div className="text-lg font-bold text-blue-700">¥{formatMoneyShort(sq.accessoryCost)}</div>
                 </div>
                 <div className="bg-purple-50 rounded-lg p-3 text-center">
-                  <div className="text-xs text-slate-500 mb-1">制造合计/条</div>
+                  <div className="text-xs text-slate-500 mb-1">制造合计</div>
                   <div className="text-lg font-bold text-purple-700">¥{formatMoneyShort(sq.manufacturingCost)}</div>
                 </div>
                 <div className="bg-amber-50 rounded-lg p-3 text-center">

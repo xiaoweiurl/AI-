@@ -148,4 +148,10 @@ public class ProductQuotation {
 
     @Column(name = "tax_amount")
     private BigDecimal taxAmount;
+
+    @Column(name = "machine_hourly_rate")
+    private BigDecimal machineHourlyRate;
+
+    @Column(name = "single_machine_output_hourly")
+    private BigDecimal singleMachineOutputHourly;
 }

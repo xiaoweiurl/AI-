@@ -413,17 +413,19 @@ public class MemoryServiceImpl implements MemoryService {
 
     // ========== 私有方法 ==========
 
-    private List<Map<String, String>> loadChatHistory(String sessionId) {
+    private List<Map<String, Object>> loadChatHistory(String sessionId) {
         if (sessionId == null || sessionId.isEmpty()) return Collections.emptyList();
 
         try {
             String sql = "SELECT role, content FROM knowledge_chat_history " +
                     "WHERE session_id = ?::uuid ORDER BY created_at ASC LIMIT 40";
             return jdbcTemplate.query(sql,
-                    (rs, rowNum) -> Map.of(
-                            "role", rs.getString("role"),
-                            "content", rs.getString("content")
-                    ),
+                    (rs, rowNum) -> {
+                        Map<String, Object> map = new HashMap<>();
+                        map.put("role", rs.getString("role"));
+                        map.put("content", rs.getString("content"));
+                        return map;
+                    },
                     sessionId
             );
         } catch (Exception e) {

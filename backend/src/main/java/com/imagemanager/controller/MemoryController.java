@@ -74,7 +74,7 @@ public class MemoryController {
         String userId = user.getId() != null ? user.getId() : user.getUsername();
 
         KnowledgeCard card = new KnowledgeCard();
-        card.setId(UUID.randomUUID().toString());
+        card.setId(UUID.randomUUID());
         card.setDomainCode((String) body.getOrDefault("domainCode", "product"));
         card.setTitle((String) body.get("title"));
         card.setContent((String) body.get("content"));

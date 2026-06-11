@@ -5,6 +5,7 @@ import com.imagemanager.entity.KnowledgeCard;
 import com.imagemanager.entity.KnowledgeDomain;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,6 @@ public interface MemoryService {
     /** 语义检索 */
     List<MemorySearchResult> search(String query, String domainCode, double minScore, int limit);
 
-    /** AI对话(SSE流式) - 返回SseEmitter */
-    Object chat(String message, UUID sessionId, String domainCode);
+    /** AI对话(SSE流式) */
+    SseEmitter chat(String message, UUID sessionId, String domainCode);
 }

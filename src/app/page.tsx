@@ -30,17 +30,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 
 // 动态推导后端 API 基础 URL（支持内网穿透/外网映射）
-function getApiBase(): string {
-  if (typeof window === 'undefined') return 'http://localhost:8080/api';
-  const { protocol, hostname } = window.location;
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    return 'http://localhost:8080/api';
-  }
-  const apiBase = `${protocol}//${hostname}/api`;
-  console.log('[getApiBase] hostname:', hostname, '→ apiBase:', apiBase);
-  return apiBase;
-}
-
+// 获取静态资源基础 URL（用于图片等静态资源，需要直连后端）
 function getStaticBase(): string {
   if (typeof window === 'undefined') return 'http://localhost:8080';
   const { protocol, hostname } = window.location;
@@ -72,10 +62,11 @@ function isApiSuccess(result: Record<string, unknown>): boolean {
   return result.success === true || result.code === 200 || result.code === 201;
 }
 
-// 直接调用后端 API
+// 通过 Next.js API Route 代理调用后端（同域，无跨域问题）
 async function backendFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
   const sessionId = getSessionId();
-  const url = `${getApiBase()}${endpoint}`;
+  // 使用同域 /api 路径，由 Next.js API Route 代理转发到 Java 后端
+  const url = `/api${endpoint}`;
   
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
@@ -84,16 +75,11 @@ async function backendFetch(endpoint: string, options: RequestInit = {}): Promis
   // 添加 sessionId 到请求头
   if (sessionId) {
     headers['X-Session-Id'] = sessionId;
-    console.log('[Backend] X-Session-Id:', sessionId.substring(0, 8) + '...');
   }
-  
-  console.log(`[Backend] ${options.method || 'GET'} ${url}`);
   
   return fetch(url, {
     ...options,
     headers,
-    mode: 'cors',
-    credentials: 'include',
   });
 }
 
@@ -304,11 +290,10 @@ export default function Home() {
   const fetchDocumentStats = React.useCallback(async () => {
     try {
       const sessionId = getSessionId();
-      const response = await fetch(`${getApiBase()}/documents/stats`, {
+      const response = await fetch('/api/documents/stats', {
         headers: {
           'X-Session-Id': sessionId || '',
         },
-        credentials: 'include',
       });
       
       if (response.ok) {

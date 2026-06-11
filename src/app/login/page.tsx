@@ -7,7 +7,6 @@ import { cn } from '@/lib/utils';
 import { User, Lock, Eye, EyeOff, Loader2, Palette, Factory, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
-import { backendFetch } from '@/lib/backend-proxy';
 
 interface LoginResponse {
   success: boolean;
@@ -49,9 +48,11 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await backendFetch('/auth/login', {
+      // 通过 Next.js API Route 代理转发到 Java 后端，避免跨域问题
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
-        body: { username, password, rememberMe },
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, rememberMe }),
       });
 
       const result = await response.json();

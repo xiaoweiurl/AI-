@@ -141,6 +141,8 @@ public class SecurityConfig {
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 // 管理员端点需要 ADMIN 角色
                 .requestMatchers("/admin/**").hasRole("ADMIN")
+                // 健康检查端点
+                .requestMatchers("/health").permitAll()
                 // 其他请求需要认证
                 .anyRequest().authenticated()
             )

@@ -63,11 +63,11 @@ export async function isBackendAvailable(): Promise<boolean> {
   try {
     // 调用后端健康检查端点（如果存在）
     // 使用 OPTIONS 请求避免发送 body
-    const response = await fetch(`${getBackendApiUrl()}/albums`, {
-      method: 'OPTIONS',
+    const response = await fetch(`${getBackendApiUrl()}/health`, {
+      method: 'GET',
       signal: AbortSignal.timeout(3000),
     });
-    backendAvailableCache = response.ok || response.status === 400; // 400 表示后端可达但参数错误
+    backendAvailableCache = response.ok;
     lastCheckTime = now;
     console.log(`[Backend] 后端服务可用: ${getBackendApiUrl()} (status: ${response.status})`);
     return true;

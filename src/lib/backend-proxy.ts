@@ -63,11 +63,11 @@ export async function isBackendAvailable(): Promise<boolean> {
   try {
     // 调用后端健康检查端点（如果存在）
     // 使用 OPTIONS 请求避免发送 body
-    const response = await fetch(`${getBackendApiUrl()}/health`, {
-      method: 'GET',
+    const response = await fetch(`${getBackendApiUrl()}/albums`, {
+      method: 'OPTIONS',
       signal: AbortSignal.timeout(3000),
     });
-    backendAvailableCache = response.ok;
+    backendAvailableCache = response.ok || response.status === 400; // 400 表示后端可达但参数错误
     lastCheckTime = now;
     console.log(`[Backend] 后端服务可用: ${getBackendApiUrl()} (status: ${response.status})`);
     return true;
@@ -84,14 +84,6 @@ export async function isBackendAvailable(): Promise<boolean> {
  */
 export function getBackendUrl(): string {
   return getBackendApiUrl();
-}
-
-/**
- * 获取后端静态资源 URL（不含 /api 后缀）
- * 静态资源（图片等）直接使用 localhost:8080
- */
-export function getBackendStaticUrl(): string {
-  return 'http://localhost:8080';
 }
 
 /**

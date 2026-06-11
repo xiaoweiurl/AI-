@@ -48,16 +48,18 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // 通过 Next.js API Route 代理转发到 Java 后端，避免跨域问题
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ username, password, rememberMe }),
       });
 
-      const result = await response.json();
+      const result: LoginResponse = await response.json();
 
-      if ((result.success || result.code === 200) && result.data) {
+      if (result.success && result.data) {
         let sessionId = result.data.sessionId;
 
         if (sessionId) {
@@ -83,7 +85,7 @@ export default function LoginPage() {
         router.refresh();
       } else {
         toast.error('登录失败', {
-          description: result.error || result.message || '用户名或密码错误',
+          description: result.error || '用户名或密码错误',
         });
       }
     } catch (error) {

@@ -17,15 +17,17 @@ import dynamic from 'next/dynamic';
 // 动态导入 ShareDialog 避免 SSR 问题
 const ShareDialog = dynamic(() => import('./ShareDialog'), { ssr: false });
 
-// 后端静态资源基础 URL
-const BACKEND_STATIC_URL = 'http://localhost:8080';
+// 后端静态资源 URL（用于图片等静态文件）
+const BACKEND_STATIC_URL = process.env.NEXT_PUBLIC_BACKEND_STATIC_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace('/api', '') || 'http://localhost:8080';
 
 // 获取完整的图片 URL
 function getFullImageUrl(url: string | undefined): string {
   if (!url) return '/placeholder.svg';
+  // 如果已经是完整 URL，直接返回
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
     return url;
   }
+  // 如果是相对路径，添加后端地址
   return `${BACKEND_STATIC_URL}${url}`;
 }
 

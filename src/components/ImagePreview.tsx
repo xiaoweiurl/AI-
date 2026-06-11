@@ -3,7 +3,6 @@
 import React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -64,21 +63,34 @@ export default function ImagePreview({
   // 记录预览次数
   React.useEffect(() => {
     if (image?.id) {
-      fetch(`http://localhost:8080/images/${image.id}/view`, { 
+      // 移除 /api 后缀，直接调用后端
+      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api').replace(/\/api$/, '');
+      fetch(`${backendUrl}/images/${image.id}/view`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       }).catch(err => console.error('[ImagePreview] 记录预览失败:', err));
     }
   }, [image?.id]);
 
-  // 获取完整的图片 URL（静态资源直接用 localhost:8080）
+  // 获取完整的图片 URL（处理相对路径）
   const getFullImageUrl = (url: string): string => {
+    // 如果已经是完整 URL（包含协议），直接返回
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url;
     }
-    if (url.startsWith('/')) {
-      return `http://localhost:8080${url}`;
+    
+    // 如果是相对路径（/uploads/xxx），拼接后端 API 地址（去掉 /api 后缀）
+    if (url.startsWith('/uploads/')) {
+      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
+      return `${backendUrl}${url}`;
     }
+    
+    // 其他相对路径
+    if (url.startsWith('/')) {
+      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
+      return `${backendUrl}${url}`;
+    }
+    
     return url;
   };
 

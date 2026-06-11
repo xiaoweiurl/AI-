@@ -3,9 +3,8 @@
  * 所有 API 调用都通过这个文件统一管理
  */
 
-// 后端 API 基础 URL（动态推导，支持外网映射）
-import { getBackendUrl } from '@/lib/backend-proxy';
-const getApiBaseUrl = () => getBackendUrl();
+// 后端 API 基础 URL
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
 
 // 请求超时时间
 const REQUEST_TIMEOUT = 30000;
@@ -17,7 +16,7 @@ async function request<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ success: boolean; data?: T; error?: string }> {
-  const url = `${getApiBaseUrl()}${endpoint}`;
+  const url = `${BACKEND_API_URL}${endpoint}`;
   
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
@@ -113,7 +112,7 @@ export async function getImages(params?: {
  * @param formData 包含图片文件的 FormData
  */
 export async function batchUploadImages(formData: FormData): Promise<{ success: boolean; data?: BatchUploadResponse; error?: string }> {
-  const url = `${getApiBaseUrl()}/images/upload/batch`;
+  const url = `${BACKEND_API_URL}/images/upload/batch`;
   
   try {
     const response = await fetch(url, {
@@ -243,7 +242,7 @@ export async function batchRecognizeImages(
  */
 export async function checkBackendHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${getApiBaseUrl()}/health`, {
+    const response = await fetch(`${BACKEND_API_URL}/health`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     });

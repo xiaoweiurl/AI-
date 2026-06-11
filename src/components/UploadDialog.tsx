@@ -13,9 +13,8 @@ import { useNotifications } from '@/contexts/NotificationContext';
 import { Upload, X, Image as ImageIcon, Loader2, CheckCircle2 } from 'lucide-react';
 import { getSessionId } from '@/lib/auth-client';
 
-// 后端 API 基础 URL（动态推导，支持外网映射）
-import { getBackendUrl } from '@/lib/backend-proxy';
-const getApiUrl = () => getBackendUrl();
+// 后端 API 基础 URL
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
 
 interface UploadDialogProps {
   open: boolean;
@@ -116,7 +115,7 @@ export default function UploadDialog({
         formData.append('file', uploadingFile.file); // 后端 @RequestParam("file")
 
         // 直接请求后端（绕过 Next.js 代理，避免服务端代理转发文件丢失）
-        const BACKEND_URL = getApiUrl();
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
         const response = await fetch(`${BACKEND_URL}/images/upload`, {
           method: 'POST',
           mode: 'cors',

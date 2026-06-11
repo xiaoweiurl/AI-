@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { getBackendStaticUrl } from '@/lib/backend-proxy';
 import { 
   Upload, 
   X, 
@@ -475,13 +474,13 @@ export default function FileUpload({
     
     // 如果是相对路径（/uploads/xxx），拼接后端 API 地址（去掉 /api 后缀）
     if (url.startsWith('/uploads/')) {
-      const backendUrl = getBackendStaticUrl();
+      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
       return `${backendUrl}${url}`;
     }
     
     // 其他相对路径
     if (url.startsWith('/')) {
-      const backendUrl = getBackendStaticUrl();
+      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
       return `${backendUrl}${url}`;
     }
     

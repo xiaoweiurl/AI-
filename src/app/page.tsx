@@ -29,17 +29,20 @@ import type { ImageItem } from '@/components/ImageCard';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 
-// 动态推导后端 API 基础 URL（支持内网穿透/外网映射）
-// 后端静态资源基础 URL（图片等静态资源，直接用 localhost:8080）
-const BACKEND_STATIC_URL = 'http://localhost:8080';
+// 后端 API 基础 URL
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
+// 后端静态资源 URL（用于图片等）
+const BACKEND_STATIC_URL = process.env.NEXT_PUBLIC_BACKEND_STATIC_URL || 'http://localhost:8080';
 
 // 获取完整的图片 URL
 function getFullImageUrl(url: string | undefined): string {
   if (!url) return '/placeholder.svg';
+  // 如果已经是完整 URL（包含 http 或 //），直接返回
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
     return url;
   }
-  return `${BACKEND_STATIC_URL}${url}`;
+  // 如果是相对路径，添加后端静态资源 URL
+  return `${BACKEND_STATIC_URL}/${url.replace(/^\//, '')}`;
 }
 
 // 获取 sessionId（从 localStorage）
@@ -53,11 +56,10 @@ function isApiSuccess(result: Record<string, unknown>): boolean {
   return result.success === true || result.code === 200 || result.code === 201;
 }
 
-// 通过 Next.js API Route 代理调用后端（同域，无跨域问题）
+// 直接调用后端 API
 async function backendFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
   const sessionId = getSessionId();
-  // 使用同域 /api 路径，由 Next.js API Route 代理转发到 Java 后端
-  const url = `/api${endpoint}`;
+  const url = `${BACKEND_API_URL}${endpoint}`;
   
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string> || {}),
@@ -66,11 +68,16 @@ async function backendFetch(endpoint: string, options: RequestInit = {}): Promis
   // 添加 sessionId 到请求头
   if (sessionId) {
     headers['X-Session-Id'] = sessionId;
+    console.log('[Backend] X-Session-Id:', sessionId.substring(0, 8) + '...');
   }
+  
+  console.log(`[Backend] ${options.method || 'GET'} ${url}`);
   
   return fetch(url, {
     ...options,
     headers,
+    mode: 'cors',
+    credentials: 'include',
   });
 }
 
@@ -228,7 +235,6 @@ export default function Home() {
   const [viewMode, setViewMode] = React.useState<'grid' | 'masonry' | 'list'>('masonry');
   const [selectedImages, setSelectedImages] = React.useState<string[]>([]);
   const [previewImage, setPreviewImage] = React.useState<ImageItem | null>(null);
-
   const [images, setImages] = React.useState<ImageItem[]>([]);
   const [allImages, setAllImages] = React.useState<ImageItem[]>([]); // 用于统计的完整数据
   const [albums, setAlbums] = React.useState<Album[]>([]);
@@ -282,10 +288,11 @@ export default function Home() {
   const fetchDocumentStats = React.useCallback(async () => {
     try {
       const sessionId = getSessionId();
-      const response = await fetch('/api/documents/stats', {
+      const response = await fetch(`${BACKEND_API_URL}/documents/stats`, {
         headers: {
           'X-Session-Id': sessionId || '',
         },
+        credentials: 'include',
       });
       
       if (response.ok) {
@@ -1864,7 +1871,7 @@ export default function Home() {
               <ImageGrid
               images={filteredImages.map(img => ({
                 ...img,
-                url: getFullImageUrl(img.url)
+                url: getFullImageUrl(img.url),
               }))}
               viewMode={viewMode}
               selectedImages={selectedImages}

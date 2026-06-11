@@ -35,9 +35,8 @@ import {
 } from '@/components/ui/dialog';
 import { useNotifications } from '@/contexts/NotificationContext';
 
-// 后端 API 基础 URL（动态推导，支持外网映射）
-import { getBackendUrl } from '@/lib/backend-proxy';
-const getApiUrl = () => getBackendUrl();
+// 后端 API 基础 URL
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
 
 // 文档分类类型
 type DocumentCategory = 'pdf' | 'word' | 'excel' | 'ppt' | 'zip' | 'other' | 'all';
@@ -169,12 +168,12 @@ export default function DocumentManager({ onClose, initialCategory, onStatsUpdat
     
     // 如果是相对路径（/uploads/xxx 或 assets/xxx），拼接后端 API 地址
     if (url.startsWith('/uploads/') || url.startsWith('uploads/')) {
-      return `${getApiUrl()}${url.startsWith('/') ? '' : '/'}${url}`;
+      return `${BACKEND_API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
     }
     
     // 其他相对路径
     if (url.startsWith('/')) {
-      return `${getApiUrl()}${url}`;
+      return `${BACKEND_API_URL}${url}`;
     }
     
     return url;
@@ -191,7 +190,7 @@ export default function DocumentManager({ onClose, initialCategory, onStatsUpdat
   const fetchDocumentStats = React.useCallback(async () => {
     try {
       const sessionId = getSessionId();
-      const response = await fetch(`${getApiUrl()}/documents/stats`, {
+      const response = await fetch(`${BACKEND_API_URL}/documents/stats`, {
         headers: {
           'X-Session-Id': sessionId || '',
         },
@@ -231,7 +230,7 @@ export default function DocumentManager({ onClose, initialCategory, onStatsUpdat
         params.append('category', category);
       }
       
-      const response = await fetch(`${getApiUrl()}/documents?${params}`, {
+      const response = await fetch(`${BACKEND_API_URL}/documents?${params}`, {
         headers: {
           'X-Session-Id': sessionId || '',
         },
@@ -313,7 +312,7 @@ export default function DocumentManager({ onClose, initialCategory, onStatsUpdat
         formData.append('fileName', file.name);
 
         const sessionId = getSessionId();
-        const response = await fetch(`${getApiUrl()}/documents/upload`, {
+        const response = await fetch(`${BACKEND_API_URL}/documents/upload`, {
           method: 'POST',
           headers: {
             'X-Session-Id': sessionId || '',
@@ -372,7 +371,7 @@ export default function DocumentManager({ onClose, initialCategory, onStatsUpdat
     try {
       const sessionId = getSessionId();
       // 调用永久删除接口
-      const response = await fetch(`${getApiUrl()}/documents/${doc.id}/permanent`, {
+      const response = await fetch(`${BACKEND_API_URL}/documents/${doc.id}/permanent`, {
         method: 'DELETE',
         headers: {
           'X-Session-Id': sessionId || '',

@@ -38,9 +38,8 @@ interface DocumentUploadDialogProps {
   onUploadSuccess?: () => void;
 }
 
-// 后端 API 基础 URL（动态推导，支持外网映射）
-import { getBackendUrl } from '@/lib/backend-proxy';
-const getApiUrl = () => getBackendUrl();
+// 后端 API 基础 URL
+const BACKEND_API_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
 
 // 文档分类类型
 export type DocumentCategory = 'pdf' | 'word' | 'excel' | 'ppt' | 'zip' | 'other';
@@ -140,13 +139,13 @@ export default function DocumentUploadDialog({
     
     // 如果是相对路径（/uploads/xxx），拼接后端 API 地址
     if (url.startsWith('/uploads/')) {
-      const baseUrl = getApiUrl().replace('/api', '');
+      const baseUrl = BACKEND_API_URL.replace('/api', '');
       return `${baseUrl}${url}`;
     }
     
     // 其他相对路径
     if (url.startsWith('/')) {
-      const baseUrl = getApiUrl().replace('/api', '');
+      const baseUrl = BACKEND_API_URL.replace('/api', '');
       return `${baseUrl}${url}`;
     }
     
@@ -251,7 +250,7 @@ export default function DocumentUploadDialog({
         formData.append('category', uploadingFile.category); // 传递分类
 
         // 直接请求后端（绕过 Next.js 代理，避免服务端代理转发文件丢失）
-        const BACKEND_URL = getApiUrl();
+        const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
         const response = await fetch(`${BACKEND_URL}/documents/upload`, {
           method: 'POST',
           mode: 'cors',

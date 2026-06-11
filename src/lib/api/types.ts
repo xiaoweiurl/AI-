@@ -4,11 +4,8 @@
  * 后端 API 基础配置
  */
 
-// 后端 API 地址（动态推导，支持外网映射）
-import { getBackendUrl } from '@/lib/backend-proxy';
-export const getApiBaseUrl = () => getBackendUrl();
-/** @deprecated 使用 getApiBaseUrl() 动态获取 */
-export const API_BASE_URL = 'http://localhost:8080/api';
+// 后端 API 地址
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
 
 // API 响应类型
 export interface ApiResponse<T = unknown> {

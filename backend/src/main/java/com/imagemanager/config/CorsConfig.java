@@ -1,13 +1,40 @@
 package com.imagemanager.config;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
+
 /**
  * CORS 跨域配置
- * 
- * 注意：CORS 配置已统一在 SecurityConfig.corsConfigurationSource() 中管理。
- * 此类保留为空，避免与 SecurityConfig 中的 CORS 配置冲突。
- * 两个 CorsFilter 同时存在可能导致 CORS 行为不一致。
  */
-// @Configuration  // 已禁用，CORS 由 SecurityConfig 统一管理
+@Configuration
 public class CorsConfig {
-    // CORS 配置已迁移到 SecurityConfig.corsConfigurationSource()
+    
+    @Bean
+    public CorsFilter corsFilter() {
+        CorsConfiguration config = new CorsConfiguration();
+        
+        // 允许所有来源（开发环境）
+        config.setAllowCredentials(false);
+        config.addAllowedOriginPattern("*");
+        
+        // 允许所有请求方法
+        config.addAllowedMethod("*");
+        
+        // 允许所有请求头
+        config.addAllowedHeader("*");
+        
+        // 允许暴露的头
+        config.addExposedHeader("*");
+        
+        // 预检请求缓存时间
+        config.setMaxAge(3600L);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        
+        return new CorsFilter(source);
+    }
 }

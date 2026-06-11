@@ -17,18 +17,16 @@ import dynamic from 'next/dynamic';
 // 动态导入 ShareDialog 避免 SSR 问题
 const ShareDialog = dynamic(() => import('./ShareDialog'), { ssr: false });
 
-// 后端静态资源 URL（动态推导，支持外网映射）
+// 后端静态资源基础 URL
+const BACKEND_STATIC_URL = 'http://localhost:8080';
 
-
-// 获取完整的图片 URL（SSR安全：服务端返回相对路径避免hydration不匹配）
+// 获取完整的图片 URL
 function getFullImageUrl(url: string | undefined): string {
   if (!url) return '/placeholder.svg';
-  // 如果已经是完整 URL，直接返回
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
     return url;
   }
-  // 静态资源直接用 localhost:8080
-  return `http://localhost:8080${url}`;
+  return `${BACKEND_STATIC_URL}${url}`;
 }
 
 export interface ImageItem {

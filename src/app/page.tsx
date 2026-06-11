@@ -30,20 +30,16 @@ import { useSettings } from '@/contexts/SettingsContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 
 // 动态推导后端 API 基础 URL（支持内网穿透/外网映射）
-// 获取静态资源基础 URL（图片等静态资源，直接用 localhost:8080）
-function getStaticBase(): string {
-  return 'http://localhost:8080';
-}
+// 后端静态资源基础 URL（图片等静态资源，直接用 localhost:8080）
+const BACKEND_STATIC_URL = 'http://localhost:8080';
 
 // 获取完整的图片 URL
-function getFullImageUrl(url: string | undefined, _staticBase?: string): string {
+function getFullImageUrl(url: string | undefined): string {
   if (!url) return '/placeholder.svg';
-  // 如果已经是完整 URL（包含 http 或 //），直接返回
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) {
     return url;
   }
-  // 如果是相对路径，添加后端静态资源 URL
-  return `http://localhost:8080/${url.replace(/^\//, '')}`;
+  return `${BACKEND_STATIC_URL}${url}`;
 }
 
 // 获取 sessionId（从 localStorage）
@@ -1868,7 +1864,7 @@ export default function Home() {
               <ImageGrid
               images={filteredImages.map(img => ({
                 ...img,
-                url: getFullImageUrl(img.url),
+                url: getFullImageUrl(img.url)
               }))}
               viewMode={viewMode}
               selectedImages={selectedImages}

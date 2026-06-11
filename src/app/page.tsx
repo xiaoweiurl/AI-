@@ -36,7 +36,9 @@ function getApiBase(): string {
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:8080/api';
   }
-  return `${protocol}//${hostname}/api`;
+  const apiBase = `${protocol}//${hostname}/api`;
+  console.log('[getApiBase] hostname:', hostname, '→ apiBase:', apiBase);
+  return apiBase;
 }
 
 function getStaticBase(): string {

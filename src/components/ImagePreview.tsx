@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { getBackendStaticUrl } from '@/lib/backend-proxy';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
@@ -64,7 +65,7 @@ export default function ImagePreview({
   React.useEffect(() => {
     if (image?.id) {
       // 移除 /api 后缀，直接调用后端
-      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api').replace(/\/api$/, '');
+      const backendUrl = getBackendStaticUrl();
       fetch(`${backendUrl}/images/${image.id}/view`, { 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,13 +82,13 @@ export default function ImagePreview({
     
     // 如果是相对路径（/uploads/xxx），拼接后端 API 地址（去掉 /api 后缀）
     if (url.startsWith('/uploads/')) {
-      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
+      const backendUrl = getBackendStaticUrl();
       return `${backendUrl}${url}`;
     }
     
     // 其他相对路径
     if (url.startsWith('/')) {
-      const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080').replace(/\/api$/, '');
+      const backendUrl = getBackendStaticUrl();
       return `${backendUrl}${url}`;
     }
     

@@ -87,6 +87,20 @@ export function getBackendUrl(): string {
 }
 
 /**
+ * 获取后端静态资源 URL（不含 /api 后缀）
+ * 本地访问 → http://localhost:8080
+ * 外网映射 → http://当前域名（后端映射到80端口）
+ */
+export function getBackendStaticUrl(): string {
+  if (typeof window === 'undefined') return process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace('/api', '') || 'http://localhost:8080';
+  const { protocol, hostname } = window.location;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return 'http://localhost:8080';
+  }
+  return `${protocol}//${hostname}`;
+}
+
+/**
  * 后端请求配置
  */
 interface BackendRequestOptions {

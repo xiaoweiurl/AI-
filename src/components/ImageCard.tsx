@@ -17,8 +17,8 @@ import dynamic from 'next/dynamic';
 // 动态导入 ShareDialog 避免 SSR 问题
 const ShareDialog = dynamic(() => import('./ShareDialog'), { ssr: false });
 
-// 后端静态资源 URL（用于图片等静态文件）
-const BACKEND_STATIC_URL = process.env.NEXT_PUBLIC_BACKEND_STATIC_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL?.replace('/api', '') || 'http://localhost:8080';
+// 后端静态资源 URL（动态推导，支持外网映射）
+import { getBackendStaticUrl } from '@/lib/backend-proxy';
 
 // 获取完整的图片 URL
 function getFullImageUrl(url: string | undefined): string {
@@ -28,7 +28,7 @@ function getFullImageUrl(url: string | undefined): string {
     return url;
   }
   // 如果是相对路径，添加后端地址
-  return `${BACKEND_STATIC_URL}${url}`;
+  return `${getBackendStaticUrl()}${url}`;
 }
 
 export interface ImageItem {

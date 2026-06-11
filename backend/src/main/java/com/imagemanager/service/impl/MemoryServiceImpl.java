@@ -54,6 +54,15 @@ public class MemoryServiceImpl implements MemoryService {
     @Value("${app.ai.model:doubao-seed-1-6-vision-250815}")
     private String aiModel;
 
+    @Value("${app.minimax.api-key:}")
+    private String minimaxApiKey;
+
+    @Value("${app.minimax.base-url:https://api.minimaxi.com/anthropic/v1/messages}")
+    private String minimaxBaseUrl;
+
+    @Value("${app.minimax.model:MiniMax-M3}")
+    private String minimaxModel;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ExecutorService executorService = Executors.newCachedThreadPool();
 
@@ -278,35 +287,52 @@ public class MemoryServiceImpl implements MemoryService {
         }
     }
 
-    // ========== LLM流式对话 ==========
+    // ========== LLM流式对话 (MiniMax Anthropic API) ==========
 
     private void streamChat(SseEmitter emitter, String prompt) {
         try {
-            String apiKey = System.getenv("COZE_API_TOKEN");
+            String apiKey = minimaxApiKey;
             if (apiKey == null || apiKey.isEmpty()) {
-                apiKey = aiApiKey;
+                apiKey = System.getenv("MINIMAX_API_KEY");
+            }
+            if (apiKey == null || apiKey.isEmpty()) {
+                throw new RuntimeException("未配置MiniMax API密钥");
             }
 
-            String url = aiBaseUrl + "/v3/chat";
+            // Anthropic兼容格式请求体
             Map<String, Object> body = new HashMap<>();
-            body.put("bot_id", "default");
-            body.put("user_id", "memory-chat");
+            body.put("model", minimaxModel);
+            body.put("max_tokens", 4096);
             body.put("stream", true);
-            body.put("auto_save_history", false);
-            body.put("additional_messages", List.of(Map.of(
+            body.put("system", "你是盈云产品智能中台的AI助手。请基于提供的知识卡片回答用户问题，标注引用来源。如果知识卡片中没有相关信息，请明确说明。回答使用中文。");
+            body.put("messages", List.of(Map.of(
                     "role", "user",
-                    "content", prompt,
-                    "content_type", "text"
+                    "content", prompt
             )));
 
-            HttpURLConnection conn = (HttpURLConnection) URI.create(url).toURL().openConnection();
+            HttpURLConnection conn = (HttpURLConnection) URI.create(minimaxBaseUrl).toURL().openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
             conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+            conn.setRequestProperty("anthropic-version", "2023-06-01");
             conn.setDoOutput(true);
+            conn.setConnectTimeout(30000);
+            conn.setReadTimeout(120000);
 
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(objectMapper.writeValueAsString(body).getBytes(StandardCharsets.UTF_8));
+            }
+
+            int responseCode = conn.getResponseCode();
+            if (responseCode != 200) {
+                BufferedReader errorReader = new BufferedReader(new InputStreamReader(conn.getErrorStream(), StandardCharsets.UTF_8));
+                StringBuilder errorBody = new StringBuilder();
+                String line;
+                while ((line = errorReader.readLine()) != null) {
+                    errorBody.append(line);
+                }
+                errorReader.close();
+                throw new RuntimeException("MiniMax API返回错误 " + responseCode + ": " + errorBody);
             }
 
             try (BufferedReader reader = new BufferedReader(
@@ -315,28 +341,45 @@ public class MemoryServiceImpl implements MemoryService {
                 while ((line = reader.readLine()) != null) {
                     if (line.startsWith("data:")) {
                         String data = line.substring(5).trim();
-                        if (data.isEmpty() || data.equals("\"\"")) continue;
+                        if (data.isEmpty()) continue;
 
                         try {
                             JsonNode node = objectMapper.readTree(data);
-                            if (node.has("type") && "conversation.chat.completed".equals(node.get("type").asText())) {
-                                break;
-                            }
-                            if (node.has("event") && "conversation.message.delta".equals(node.get("event").asText())) {
-                                JsonNode contentNode = node.path("data").path("content");
-                                if (!contentNode.isMissingNode() && contentNode.isTextual()) {
-                                    String chunk = contentNode.asText();
+                            String eventType = node.path("type").asText("");
+
+                            switch (eventType) {
+                                case "content_block_delta":
+                                    // 文本内容增量
+                                    JsonNode delta = node.path("delta");
+                                    String deltaType = delta.path("type").asText("");
+                                    if ("text_delta".equals(deltaType)) {
+                                        String text = delta.path("text").asText("");
+                                        if (!text.isEmpty()) {
+                                            emitter.send(SseEmitter.event().name("message").data(
+                                                    objectMapper.writeValueAsString(Map.of("type", "content", "content", text))
+                                            ));
+                                        }
+                                    }
+                                    break;
+                                case "message_stop":
+                                    // 流式结束
                                     emitter.send(SseEmitter.event().name("message").data(
-                                            objectMapper.writeValueAsString(Map.of("type", "content", "content", chunk))
+                                            objectMapper.writeValueAsString(Map.of("type", "done"))
                                     ));
-                                }
+                                    return;
+                                case "error":
+                                    String errorMsg = node.path("error").path("message").asText("未知错误");
+                                    throw new RuntimeException("MiniMax流式错误: " + errorMsg);
                             }
-                        } catch (Exception ignored) {}
+                        } catch (Exception parseEx) {
+                            if (parseEx instanceof RuntimeException) throw parseEx;
+                            log.debug("解析SSE行失败: {}", data);
+                        }
                     }
                 }
             }
         } catch (Exception e) {
-            log.error("流式对话失败: {}", e.getMessage());
+            log.error("MiniMax流式对话失败: {}", e.getMessage());
             throw new RuntimeException("流式对话失败: " + e.getMessage());
         }
     }

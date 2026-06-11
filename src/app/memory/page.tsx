@@ -1,5 +1,6 @@
 'use client';
 
+import { backendFetch, getBackendUrl } from '@/lib/backend-proxy';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Brain, Plus, Search, Send, Package, FlaskConical, Users, Swords,
@@ -110,7 +111,7 @@ export default function MemoryPage() {
 
   const fetchDomains = async () => {
     try {
-      const res = await fetch('/api/memory/domains');
+      const res = await backendFetch('/memory/domains');
       const data = await res.json();
       if (data.success) {
         setDomains(data.domains);
@@ -133,7 +134,7 @@ export default function MemoryPage() {
         pageSize: '20',
       });
       if (searchKeyword) params.set('keyword', searchKeyword);
-      const res = await fetch(`/api/memory/cards?${params}`);
+      const res = await backendFetch(`/memory/cards?${params}`);
       const data = await res.json();
       if (data.success) {
         setCards(data.cards || []);
@@ -148,9 +149,8 @@ export default function MemoryPage() {
     if (!newCard.title || !newCard.content) return;
     setIsCreating(true);
     try {
-      const res = await fetch('/api/memory/cards', {
+      const res = await backendFetch('/memory/cards', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           domainCode: newCard.domainCode,
           title: newCard.title,
@@ -197,7 +197,7 @@ export default function MemoryPage() {
     setChatMessages(prev => [...prev, assistantMsg]);
 
     try {
-      const res = await fetch('/api/memory/chat', {
+      const res = await fetch(`${getBackendUrl()}/memory/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

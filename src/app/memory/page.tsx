@@ -1,6 +1,5 @@
 'use client';
 
-import { backendFetch, backendFetchFormData, getBackendUrl, getSessionId } from '@/lib/backend-proxy';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Brain, Plus, Search, Send, Package, FlaskConical, Users, Swords,
@@ -92,6 +91,27 @@ const FILE_ICONS: Record<string, React.ReactNode> = {
   txt: <FileType className="w-5 h-5 text-slate-500" />,
 };
 
+// 统一使用 Next.js API 代理（同源，无跨域问题）
+const memoryApi = {
+  get: (path: string) => fetch(`/api/memory${path}`, { credentials: 'include' }),
+  post: (path: string, body?: unknown) => fetch(`/api/memory${path}`, {
+    method: 'POST',
+    headers: body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : undefined,
+    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
+    credentials: 'include',
+  }),
+  put: (path: string, body: unknown) => fetch(`/api/memory${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    credentials: 'include',
+  }),
+  del: (path: string) => fetch(`/api/memory${path}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  }),
+};
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -157,7 +177,7 @@ export default function MemoryPage() {
 
   const fetchDomains = async () => {
     try {
-      const res = await backendFetch('/memory/domains');
+      const res = await memoryApi.get('/domains');
       const data = await res.json();
       if (data.success) {
         setDomains(data.domains);
@@ -175,7 +195,7 @@ export default function MemoryPage() {
   const fetchCards = async () => {
     try {
       const params = new URLSearchParams({ domainCode: activeDomain });
-      const res = await backendFetch(`/memory/cards?${params}`);
+      const res = await memoryApi.get(`/cards?${params}`);
       const data = await res.json();
       if (data.success) {
         setCards(data.cards || []);
@@ -188,7 +208,7 @@ export default function MemoryPage() {
 
   const fetchDocuments = async () => {
     try {
-      const res = await backendFetch('/memory/documents');
+      const res = await memoryApi.get('/documents');
       const data = await res.json();
       if (data.success) {
         setDocuments(data.documents || []);
@@ -210,7 +230,7 @@ export default function MemoryPage() {
         formData.append('file', file);
         formData.append('domainCode', uploadDomain || 'product');
 
-        const res = await backendFetchFormData('/memory/upload', formData);
+        const res = await memoryApi.post('/upload', formData);
         const data = await res.json();
         if (!data.success) {
           alert(`上传 ${file.name} 失败: ${data.message || '未知错误'}`);
@@ -230,7 +250,7 @@ export default function MemoryPage() {
   const handleDeleteDocument = async (docId: string) => {
     if (!confirm('确定删除此文档？关联的知识卡片也会被删除。')) return;
     try {
-      await backendFetch(`/memory/documents/${docId}`, { method: 'DELETE' });
+      await memoryApi.del(`/documents/${docId}`);
       fetchDocuments();
       fetchCards();
     } catch (err) {
@@ -242,9 +262,7 @@ export default function MemoryPage() {
     if (!newCard.title || !newCard.content) return;
     setIsCreating(true);
     try {
-      const res = await backendFetch('/memory/cards', {
-        method: 'POST',
-        body: JSON.stringify({
+      const res = await memoryApi.post('/cards', {
           domainCode: newCard.domainCode,
           title: newCard.title,
           content: newCard.content,
@@ -252,8 +270,7 @@ export default function MemoryPage() {
           productCode: newCard.productCode || undefined,
           source: newCard.source || undefined,
           confidence: newCard.confidence,
-        }),
-      });
+        });
       const data = await res.json();
       if (data.success) {
         setShowCreateModal(false);
@@ -272,7 +289,7 @@ export default function MemoryPage() {
   const handleDeleteCard = async (cardId: string) => {
     if (!confirm('确定删除此知识卡片？')) return;
     try {
-      await backendFetch(`/memory/cards/${cardId}`, { method: 'DELETE' });
+      await memoryApi.del(`/cards/${cardId}`);
       fetchCards();
     } catch (err) {
       console.error('删除卡片失败:', err);
@@ -300,17 +317,13 @@ export default function MemoryPage() {
     setChatMessages(prev => [...prev, assistantMsg]);
 
     try {
-      const sid = getSessionId();
       const params = new URLSearchParams({
         message: userMsg.content,
         sessionId: currentSessionId,
       });
-      const res = await fetch(`${getBackendUrl()}/memory/chat?${params}`, {
+      const res = await fetch(`/api/memory/chat?${params}`, {
         method: 'GET',
-        headers: {
-          'Accept': 'text/event-stream',
-          ...(sid ? { 'X-Session-Id': sid } : {}),
-        },
+        headers: { 'Accept': 'text/event-stream' },
         credentials: 'include',
       });
 

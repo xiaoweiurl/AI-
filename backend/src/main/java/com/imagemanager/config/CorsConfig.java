@@ -16,8 +16,9 @@ public class CorsConfig {
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // 允许所有来源（开发环境）
-        config.setAllowCredentials(false);
+        // 允许携带凭证（Cookie、Authorization 头等）
+        config.setAllowCredentials(true);
+        // 使用 originPatterns 支持通配符 + allowCredentials=true
         config.addAllowedOriginPattern("*");
         
         // 允许所有请求方法

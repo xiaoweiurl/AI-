@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { User, Lock, Eye, EyeOff, Loader2, Palette, Factory, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
+import { backendFetch } from '@/lib/backend-proxy';
 
 interface LoginResponse {
   success: boolean;
@@ -48,18 +49,14 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
+      const response = await backendFetch('/auth/login', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username, password, rememberMe }),
+        body: { username, password, rememberMe },
       });
 
-      const result: LoginResponse = await response.json();
+      const result = await response.json();
 
-      if (result.success && result.data) {
+      if ((result.success || result.code === 200) && result.data) {
         let sessionId = result.data.sessionId;
 
         if (sessionId) {
@@ -85,7 +82,7 @@ export default function LoginPage() {
         router.refresh();
       } else {
         toast.error('登录失败', {
-          description: result.error || '用户名或密码错误',
+          description: result.error || result.message || '用户名或密码错误',
         });
       }
     } catch (error) {

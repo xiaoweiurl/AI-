@@ -60,22 +60,7 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
-  // 安全头配置
-  async rewrites() {
-    return [
-      // 图片/静态资源代理：/api/uploads/* → http://localhost:8080/api/uploads/*
-      // 这样图片URL用相对路径 /api/uploads/xxx.jpg，浏览器同源请求无CORS问题
-      {
-        source: '/api/uploads/:path*',
-        destination: 'http://localhost:8080/api/uploads/:path*',
-      },
-      // 其他静态资源代理
-      {
-        source: '/api/assets/:path*',
-        destination: 'http://localhost:8080/api/assets/:path*',
-      },
-    ];
-  },
+  // 图片代理通过 API Route 实现（/api/uploads/[[...path]]/route.ts）
   async headers() {
     return [
       {

@@ -722,7 +722,15 @@ export default function Home() {
         // 去重处理，避免重复 key 警告
         const deduplicatedList = imageList.filter((img: { id: string }, index: number, arr: { id: string }[]) =>
           arr.findIndex((i: { id: string }) => i.id === img.id) === index
-        );
+        ).map((img: Record<string, unknown>) => {
+          // 在数据源头统一转换所有 URL 为代理路径
+          const converted = { ...img };
+          if (typeof converted.url === 'string') converted.url = proxyImageUrl(converted.url);
+          if (typeof converted.thumbnail === 'string') converted.thumbnail = proxyImageUrl(converted.thumbnail);
+          if (typeof converted.originalUrl === 'string') converted.originalUrl = proxyImageUrl(converted.originalUrl);
+          if (typeof converted.mainImageUrl === 'string') converted.mainImageUrl = proxyImageUrl(converted.mainImageUrl);
+          return converted;
+        });
 
         if (append) {
           setImages(prev => {
@@ -1428,7 +1436,15 @@ export default function Home() {
       // 使用 API 执行匹配筛选
       executeSmartAlbumRules(item, 1, pageSize).then(result => {
         if (result) {
-          setImages(result.images);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setImages((result.images as any[]).map((img: any) => {
+            const c = { ...img };
+            if (typeof c.url === 'string') c.url = proxyImageUrl(c.url);
+            if (typeof c.thumbnail === 'string') c.thumbnail = proxyImageUrl(c.thumbnail);
+            if (typeof c.originalUrl === 'string') c.originalUrl = proxyImageUrl(c.originalUrl);
+            if (typeof c.mainImageUrl === 'string') c.mainImageUrl = proxyImageUrl(c.mainImageUrl);
+            return c;
+          }));
           setHasMore(result.page < result.totalPages);
         } else {
           // API 失败时回退到前端筛选
@@ -1494,7 +1510,14 @@ export default function Home() {
       if (isApiSuccess(result)) {
         const imageList = result.data?.list || result.data || [];
         console.log('[Home] 获取到图片列表，数量:', imageList.length);
-        setImages(imageList);
+        setImages(imageList.map((img: Record<string, unknown>) => {
+          const c = { ...img };
+          if (typeof c.url === 'string') c.url = proxyImageUrl(c.url);
+          if (typeof c.thumbnail === 'string') c.thumbnail = proxyImageUrl(c.thumbnail);
+          if (typeof c.originalUrl === 'string') c.originalUrl = proxyImageUrl(c.originalUrl);
+          if (typeof c.mainImageUrl === 'string') c.mainImageUrl = proxyImageUrl(c.mainImageUrl);
+          return c;
+        }));
         setHasMore(false);
 
         // 获取完整数据用于统计（不使用当前视图的部分数据）
@@ -1548,7 +1571,14 @@ export default function Home() {
       if (isApiSuccess(result)) {
         const imageList = result.data?.list || result.data || [];
         console.log('[Home] 获取到图片列表，数量:', imageList.length);
-        setImages(imageList);
+        setImages(imageList.map((img: Record<string, unknown>) => {
+          const c = { ...img };
+          if (typeof c.url === 'string') c.url = proxyImageUrl(c.url);
+          if (typeof c.thumbnail === 'string') c.thumbnail = proxyImageUrl(c.thumbnail);
+          if (typeof c.originalUrl === 'string') c.originalUrl = proxyImageUrl(c.originalUrl);
+          if (typeof c.mainImageUrl === 'string') c.mainImageUrl = proxyImageUrl(c.mainImageUrl);
+          return c;
+        }));
         setHasMore(false);
 
         // 获取完整数据用于统计（不使用当前视图的部分数据）

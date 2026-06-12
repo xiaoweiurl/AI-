@@ -62,7 +62,7 @@ export default function RootLayout({
   const isDev = process.env.COZE_PROJECT_ENV === 'DEV';
 
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" style={{ colorScheme: 'light' }}>
       <body className={`antialiased`}>
         <ClientProviders>
           {isDev && <Inspector />}

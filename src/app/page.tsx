@@ -852,6 +852,14 @@ export default function Home() {
             },
           });
           
+          // 502 = 代理连不上后端，走降级模式（不跳转登录页）
+          if (response.status === 502) {
+            console.log('[Home] 后端不可用(502)，进入降级模式');
+            // 降级模式：使用本地 session，不强制跳转
+            setCurrentUser({ id: 'local', username: '本地用户', email: '', role: 'user' });
+            return;
+          }
+
           if (!response.ok) {
             console.log('[Home] 后端session验证失败, status:', response.status);
             localStorage.removeItem('session_id');

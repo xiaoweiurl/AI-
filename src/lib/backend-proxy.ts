@@ -49,6 +49,7 @@ const CACHE_TTL = 30000; // 30秒缓存
 
 /**
  * 检查后端服务是否可用
+ * 通过 Next.js 代理检测，如果能连通 Java 后端即视为可用
  */
 export async function isBackendAvailable(): Promise<boolean> {
   const now = Date.now();
@@ -59,12 +60,21 @@ export async function isBackendAvailable(): Promise<boolean> {
   }
   
   try {
-    // 使用 GET 请求检测后端可用性（不用 OPTIONS，Spring Boot 可能不支持）
-    const response = await fetch(`${getBackendApiUrl()}/albums`, {
+    // 通过代理路径检测（和正常请求走同一条路）
+    const response = await fetch('/api/proxy/albums', {
       method: 'GET',
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
-    // 只要后端有响应（包括 401/403/404），都说明后端服务在运行
+    
+    // 502 = 代理连不上后端
+    if (response.status === 502) {
+      backendAvailableCache = false;
+      lastCheckTime = now;
+      console.log('[Backend] 后端服务不可用 (502)');
+      return false;
+    }
+    
+    // 其他状态码（200/401/403/404）都说明后端在运行
     backendAvailableCache = response.status < 500;
     lastCheckTime = now;
     console.log(`[Backend] 后端服务${backendAvailableCache ? '可用' : '不可用'} (status: ${response.status})`);
@@ -72,7 +82,7 @@ export async function isBackendAvailable(): Promise<boolean> {
   } catch (error) {
     backendAvailableCache = false;
     lastCheckTime = now;
-    console.log(`[Backend] 后端服务不可用`, error instanceof Error ? error.message : error);
+    console.log('[Backend] 后端服务不可用', error instanceof Error ? error.message : error);
     return false;
   }
 }

@@ -2,37 +2,48 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * 通用后端 API 代理
- * 所有前端请求通过 /api/proxy/... 转发到 Java 后端
- * 本地: http://localhost:8080/api/...
- * 生产: 由环境变量 NEXT_PUBLIC_BACKEND_API_URL 指定
- * 彻底解决外网映射访问时的 CORS 和 Private Network Access 问题
+ * 
+ * 动态识别后端地址：
+ * 1. 优先使用环境变量 BACKEND_API_URL（非 NEXT_PUBLIC_ 前缀，仅在服务端可用）
+ * 2. 其次使用 NEXT_PUBLIC_BACKEND_API_URL
+ * 3. 默认 http://localhost:8080/api（本地开发）
+ * 
+ * 前端统一走 /api/proxy/... 同源路径，避免 CORS 和 Private Network Access 问题
  */
 
-// 服务端读取后端地址（非 NEXT_PUBLIC_ 前缀，确保只在服务端执行）
-const BACKEND_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_BACKEND_API_URL || 'http://localhost:8080/api';
+function getBackendUrl(): string {
+  // 服务端环境变量（优先）
+  if (process.env.BACKEND_API_URL) return process.env.BACKEND_API_URL;
+  if (process.env.NEXT_PUBLIC_BACKEND_API_URL) return process.env.NEXT_PUBLIC_BACKEND_API_URL;
+  return 'http://localhost:8080/api';
+}
 
 async function proxyRequest(request: NextRequest, method: string) {
+  const BACKEND_URL = getBackendUrl();
+  
   try {
     // 构建后端 URL：/api/proxy/auth/login → http://localhost:8080/api/auth/login
     const path = request.nextUrl.pathname.replace('/api/proxy', '');
     const searchParams = request.nextUrl.search;
     const backendUrl = `${BACKEND_URL}${path}${searchParams}`;
 
-    // 复制请求头，过滤掉 Next.js/host 相关的头（避免后端拒绝）
+    // 复制请求头，过滤掉 Next.js/代理相关的头（避免后端拒绝）
     const headers = new Headers();
     const skipHeaders = new Set([
       'host', 'connection', 'content-length', 'transfer-encoding',
       'x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host',
       'x-real-ip', 'cf-connecting-ip', 'cf-ipcountry', 'cf-ray', 'cf-visitor',
+      'x-middleware-request-', 'x-nextjs-data', 'x-invoke-output',
+      'x-invoke-path', 'x-invoke-query', 'rsc', 'next-url',
     ]);
     request.headers.forEach((value, key) => {
       const lowerKey = key.toLowerCase();
-      if (!skipHeaders.has(lowerKey)) {
+      if (!skipHeaders.has(lowerKey) && !lowerKey.startsWith('x-middleware')) {
         headers.set(key, value);
       }
     });
 
-    // 设置合理的 Host 头
+    // 设置正确的 Host 头（匹配后端地址）
     try {
       const backendHost = new URL(BACKEND_URL).host;
       headers.set('Host', backendHost);
@@ -47,12 +58,14 @@ async function proxyRequest(request: NextRequest, method: string) {
     }
 
     // 构建请求选项
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
     const fetchOptions: RequestInit = {
       method,
       headers,
       redirect: 'manual',
-      // @ts-expect-error Node.js fetch 支持 signal timeout
-      timeout: 30000,
+      signal: controller.signal,
     };
 
     // 非 GET/HEAD 请求传递 body
@@ -62,6 +75,8 @@ async function proxyRequest(request: NextRequest, method: string) {
       if (contentType.includes('multipart/form-data')) {
         // FormData：直接透传原始 body
         fetchOptions.body = await request.arrayBuffer();
+        // multipart 不设 Content-Type，让浏览器自动加 boundary
+        headers.delete('content-type');
       } else if (contentType.includes('application/json') || contentType.includes('text/')) {
         fetchOptions.body = await request.text();
       } else {
@@ -69,9 +84,10 @@ async function proxyRequest(request: NextRequest, method: string) {
       }
     }
 
-    console.log(`[Proxy] ${method} → ${backendUrl} (backend=${BACKEND_URL})`);
+    console.log(`[Proxy] ${method} → ${backendUrl}`);
 
     const backendResponse = await fetch(backendUrl, fetchOptions);
+    clearTimeout(timeoutId);
 
     console.log(`[Proxy] ← ${backendResponse.status} ${backendResponse.statusText}`);
 
@@ -103,10 +119,15 @@ async function proxyRequest(request: NextRequest, method: string) {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error('[Proxy] 请求转发失败:', error);
-    const message = error instanceof Error ? error.message : '代理请求失败';
+    const BACKEND = getBackendUrl();
+    const errMsg = error instanceof Error ? error.message : '代理请求失败';
+    console.error(`[Proxy] 请求转发失败 (${BACKEND}):`, errMsg);
     return NextResponse.json(
-      { success: false, error: message, message: '后端服务不可用，请确认 Java 后端已启动' },
+      { 
+        success: false, 
+        error: `后端服务不可用 (${BACKEND}): ${errMsg}`, 
+        message: '后端服务不可用，请确认 Java 后端已启动' 
+      },
       { status: 502 }
     );
   }

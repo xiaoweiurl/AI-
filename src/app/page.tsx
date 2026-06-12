@@ -19,8 +19,6 @@ import ExcelBatchUpload from '@/components/ExcelBatchUpload';
 import ExportDialog from '@/components/ExportDialog';
 import UserMenu from '@/components/UserMenu';
 import { BatchReplaceMainImageDialog } from '@/components/BatchReplaceMainImageDialog';
-import KnowledgePanel from '@/components/KnowledgePanel';
-import MemoryPanel from '@/components/MemoryPanel';
 import type { SmartAlbumInfo } from '@/components/Sidebar';
 import { PRESET_SMART_ALBUMS, type MatchingConfig } from '@/lib/api/types';
 import { filterImagesBySmartAlbum, getSmartAlbumImageCount } from '@/lib/smart-album-engine';
@@ -1385,15 +1383,15 @@ export default function Home() {
   const handleMenuItemClick = async (item: string) => {
     console.log('[Home] 菜单项点击:', item);
 
-    // 如果点击RAG知识库，切换到知识库面板
+    // 如果点击RAG知识库，跳转到知识库页面
     if (item === 'knowledge') {
-      setActiveMenuItem('knowledge');
+      router.push('/knowledge');
       return;
     }
 
-    // 如果点击记忆库，切换到记忆库面板
+    // 如果点击记忆库，跳转到记忆库页面
     if (item === 'memory') {
-      setActiveMenuItem('memory');
+      router.push('/memory');
       return;
     }
 
@@ -1808,30 +1806,18 @@ export default function Home() {
         />
 
         {/* 主内容 */}
-        <main className="flex-1 overflow-hidden">
-          {/* RAG知识库 */}
-          {activeMenuItem === 'knowledge' && (
-            <KnowledgePanel />
-          )}
-
-          {/* 记忆库 */}
-          {activeMenuItem === 'memory' && (
-            <MemoryPanel />
-          )}
-
+        <main className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-50/30 to-white">
           {/* 文档中心 */}
-          {(activeMenuItem === 'documents' || activeMenuItem.startsWith('doc-')) && !['knowledge', 'memory'].includes(activeMenuItem) && (
-            <div className="h-full overflow-y-auto">
-              <DocumentManager 
-                initialCategory={activeMenuItem === 'documents' ? 'all' : activeMenuItem.replace('doc-', '') as 'pdf' | 'word' | 'excel' | 'ppt' | 'zip' | 'other'}
-                onStatsUpdate={(stats) => setDocumentStats(stats)}
-              />
-            </div>
+          {(activeMenuItem === 'documents' || activeMenuItem.startsWith('doc-')) && (
+            <DocumentManager 
+              initialCategory={activeMenuItem === 'documents' ? 'all' : activeMenuItem.replace('doc-', '') as 'pdf' | 'word' | 'excel' | 'ppt' | 'zip' | 'other'}
+              onStatsUpdate={(stats) => setDocumentStats(stats)}
+            />
           )}
 
           {/* 知识分类页面内容 - 仅在知识分类页面显示 */}
-          {!['knowledge', 'memory'].includes(activeMenuItem) && !activeMenuItem.startsWith('documents') && !activeMenuItem.startsWith('doc-') && (
-            <div className="h-full overflow-y-auto bg-gradient-to-br from-slate-50/30 to-white p-6">
+          {!activeMenuItem.startsWith('documents') && !activeMenuItem.startsWith('doc-') && (
+            <div className="p-6">
               {/* 标题栏 */}
               <div className="mb-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">

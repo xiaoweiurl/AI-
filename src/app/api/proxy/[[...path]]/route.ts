@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 /**
  * 通用后端 API 代理
  * 
- * 关键功能：
- * 1. 转发所有 HTTP 请求到 Java 后端
- * 2. 自动改写响应中的 localhost:8080 URL 为相对路径（彻底解决映射端口 CORS 问题）
- * 3. SSE 流式响应透传
- * 4. 动态探测后端地址
+ * 核心策略：在代理层根据请求来源域名，动态替换响应中的 localhost:8080 URL
+ * 
+ * - 本地访问(localhost/127.0.0.1): 替换为相对路径 /api/uploads/xxx（前端同源请求，无CORS）
+ * - 映射域名访问: 替换为 http://映射域名/api/uploads/xxx（Java后端8080映射到域名80端口）
+ * 
+ * 这样前端拿到的图片URL直接可用，不需要在前端做任何URL转换！
  */
 
 // 后端地址探测结果缓存
@@ -29,19 +30,8 @@ function getBackendCandidates(request: NextRequest): string[] {
     candidates.push(process.env.NEXT_PUBLIC_BACKEND_API_URL);
   }
   
-  // 2. 根据 Host 头判断
-  const host = request.headers.get('host') || '';
-  const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('0.0.0.0');
-  
-  if (isLocalhost) {
-    candidates.push('http://localhost:8080/api');
-  } else {
-    const hostname = host.split(':')[0];
-    candidates.push(`http://${hostname}/api`);
-    candidates.push(`http://${hostname}:8080/api`);
-    candidates.push('http://localhost:8080/api');
-    candidates.push(`https://${hostname}/api`);
-  }
+  // 2. 总是尝试直连本地后端（代理运行在服务器上，可以直接访问localhost）
+  candidates.push('http://localhost:8080/api');
   
   return [...new Set(candidates)];
 }
@@ -95,16 +85,42 @@ async function getAvailableBackend(request: NextRequest): Promise<string | null>
 }
 
 /**
- * 改写响应体中的 localhost:8080 URL 为相对路径
+ * 根据请求的 Host 头判断当前访问方式，返回需要替换的目标前缀
  * 
- * http://localhost:8080/api/uploads/images/xxx.jpg → /api/uploads/images/xxx.jpg
- * http://localhost:8080/api/xxx → /api/xxx
- * 
- * 这样前端拿到的永远是相对路径，浏览器请求同域，由 Next.js rewrites 或 proxy 转发
+ * 逻辑：
+ * - 本地访问 (localhost:5000 / 127.0.0.1:5000): 返回空字符串
+ *   → http://localhost:8080/api/uploads/xxx → /api/uploads/xxx (相对路径，前端同源请求)
+ * - 映射域名访问 (xxx.gnway.cc:8000): 返回 http://映射域名
+ *   → http://localhost:8080/api/uploads/xxx → http://xxx.gnway.cc/api/uploads/xxx (映射的80端口)
  */
-function rewriteResponseBody(body: string): string {
+function getReplacementPrefix(request: NextRequest): string {
+  const host = request.headers.get('host') || '';
+  const isLocal = host.startsWith('localhost') || host.startsWith('127.0.0.1') || host.startsWith('0.0.0.0');
+  
+  if (isLocal) {
+    // 本地访问：替换为相对路径（去掉 http://localhost:8080 前缀）
+    return '';
+  }
+  
+  // 映射域名访问：替换为映射域名
+  // Java后端(8080)映射到域名默认80端口，所以不需要端口号
+  const hostname = host.split(':')[0];
+  // 判断协议：映射服务一般用http，如果请求带了x-forwarded-proto则用它
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const protocol = forwardedProto || 'http';
+  
+  return `${protocol}://${hostname}`;
+}
+
+/**
+ * 改写响应体中的 localhost:8080 URL
+ * 
+ * 本地访问: http://localhost:8080/api/uploads/xxx.jpg → /api/uploads/xxx.jpg
+ * 映射访问: http://localhost:8080/api/uploads/xxx.jpg → http://映射域名/api/uploads/xxx.jpg
+ */
+function rewriteResponseBody(body: string, replacementPrefix: string): string {
   // 匹配 http://localhost:8080 或 http://127.0.0.1:8080
-  return body.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):8080/g, '');
+  return body.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):8080/g, replacementPrefix);
 }
 
 async function proxyRequest(request: NextRequest, method: string) {
@@ -203,14 +219,21 @@ async function proxyRequest(request: NextRequest, method: string) {
       });
     }
 
+    // 计算URL替换前缀（根据请求来源判断是本地还是映射访问）
+    const replacementPrefix = getReplacementPrefix(request);
+    
     // 普通响应：改写响应体中的 localhost URL
     const responseBody = await backendResponse.arrayBuffer();
     const contentType = backendResponse.headers.get('content-type') || '';
     
     if (contentType.includes('application/json') || contentType.includes('text/')) {
-      // 文本/JSON 响应：改写 localhost URL
+      // 文本/JSON 响应：根据请求来源动态替换 localhost URL
       const bodyText = new TextDecoder().decode(responseBody);
-      const rewrittenBody = rewriteResponseBody(bodyText);
+      const rewrittenBody = rewriteResponseBody(bodyText, replacementPrefix);
+      
+      if (replacementPrefix !== '') {
+        console.log(`[Proxy] URL替换: localhost:8080 → ${replacementPrefix || '(相对路径)'}`);
+      }
       
       return new NextResponse(rewrittenBody, {
         status: backendResponse.status,

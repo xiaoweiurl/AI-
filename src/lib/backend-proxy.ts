@@ -39,89 +39,35 @@ export function getBackendInternalUrl(): string {
 }
 
 /**
- * 重写静态资源 URL（图片、文件等）
- * 
- * 数据库中存储的是 http://localhost:8080/api/uploads/... 
- * 本地访问时可以直接用，但映射访问时需要替换为映射域名
- * 
- * 逻辑：
- * - localhost 访问 → 不替换，直接用 localhost:8080
- * - 映射域名访问 → 替换为映射域名（Java后端80端口对应映射的8080）
+ * 重写静态资源 URL - 已弃用
+ * 后端代理层已自动处理 URL 替换，前端不需要做任何转换
+ * @deprecated 保留此函数仅为向后兼容，实际直接返回原URL
  */
 export function rewriteStaticUrl(url: string): string {
-  if (!url || typeof window === 'undefined') return url;
-  
-  // 只处理包含 localhost:8080 的 URL（用 includes 而不是 startsWith，兼容各种路径格式）
-  if (!url.includes('localhost:8080')) return url;
-  
-  const currentHost = window.location.hostname;
-  const currentPort = window.location.port;
-  
-  // 本地访问不需要替换
-  if (currentHost === 'localhost' || currentHost === '127.0.0.1') return url;
-  
-  // 映射域名访问：替换 localhost:8080 为当前域名
-  // Java后端映射在外网默认80端口（不需要端口号）
-  const protocol = window.location.protocol;
-  const newPrefix = `${protocol}//${currentHost}`;
-  
-  const result = url.replace('http://localhost:8080', newPrefix);
-  console.log(`[rewriteStaticUrl] ${url} → ${result}`);
-  return result;
+  return url;
 }
 
 /**
- * 批量重写对象中的静态资源 URL
- * 递归查找所有包含 localhost:8080 的字符串字段并重写
+ * 批量重写对象中的静态资源 URL - 已弃用
+ * 后端代理层已自动处理 URL 替换，前端不需要做任何转换
+ * @deprecated 保留此函数仅为向后兼容，实际直接返回原对象
  */
 export function rewriteStaticUrls<T>(obj: T): T {
-  if (typeof window === 'undefined' || !obj) return obj;
-  
-  if (typeof obj === 'string') {
-    return rewriteStaticUrl(obj) as T;
-  }
-  
-  if (Array.isArray(obj)) {
-    return obj.map(item => rewriteStaticUrls(item)) as T;
-  }
-  
-  if (typeof obj === 'object' && obj !== null) {
-    const result = { ...obj } as Record<string, unknown>;
-    for (const key of Object.keys(result)) {
-      result[key] = rewriteStaticUrls(result[key]);
-    }
-    return result as T;
-  }
-  
   return obj;
 }
 
 /**
- * 根据当前访问域名动态替换图片URL
- * 本地访问(localhost/127.0.0.1): 保持 http://localhost:8080/... 不变
- * 映射访问(外网域名): 替换为 http://当前域名/... (映射的80端口,即Java后端)
+ * 图片URL透传
  * 
- * 映射对应关系:
- *   内部 8080 → 外部 域名:80 (默认80端口省略)
- *   内部 5000 → 外部 域名:8000 (Next.js前端)
+ * 后端代理层已根据请求来源自动替换 localhost:8080：
+ * - 本地访问: /api/proxy 返回的 JSON 中已经是相对路径 /api/uploads/xxx
+ * - 映射访问: /api/proxy 返回的 JSON 中已经是 http://映射域名/api/uploads/xxx
+ * 
+ * 前端无需做任何URL转换，直接透传即可
  */
 export function proxyImageUrl(url: string | undefined): string {
   if (!url) return '/placeholder.svg';
-  
-  // 已经是相对路径，直接返回
-  if (url.startsWith('/')) return url;
-  
-  // 完整URL: http://localhost:8080/api/uploads/xxx → /api/uploads/xxx
-  // 不依赖 window 对象，SSR/CSR 通用
-  const match = url.match(/^https?:\/\/[^/]+(\/.*)$/);
-  if (match) return match[1];
-  
   return url;
-}
-
-// 全局调试函数，可在控制台执行 window.__debugProxyImageUrl('http://localhost:8080/api/uploads/test.jpg')
-if (typeof window !== 'undefined') {
-  (window as unknown as Record<string, unknown>).__debugProxyImageUrl = proxyImageUrl;
 }
 
 /**

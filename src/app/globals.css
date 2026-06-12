@@ -130,6 +130,11 @@
   body {
     @apply bg-background text-foreground;
   }
+  input,
+  textarea,
+  select {
+    color: var(--foreground);
+  }
 }
 
 body {

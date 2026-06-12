@@ -368,12 +368,14 @@ export default function SupplyChainPage() {
           <div>
             <label className="block text-sm text-slate-500 mb-1">目标利润率 (%)</label>
             <input type="number" value={targetProfitRate} onChange={e => setTargetProfitRate(Number(e.target.value))}
-              className="w-28 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none" />
+              style={{color: '#1e293b', WebkitColorScheme: 'light'}}
+              className="w-28 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none bg-white" />
           </div>
           <div>
             <label className="block text-sm text-slate-500 mb-1">加工费 (元/条)</label>
             <input type="number" step="0.01" value={processingCost} onChange={e => setProcessingCost(Number(e.target.value))}
-              className="w-28 px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-800 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none" />
+              style={{color: '#1e293b', WebkitColorScheme: 'light'}}
+              className="w-28 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none bg-white" />
           </div>
           <button onClick={loadAllData} className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all">
             <RefreshCw className="w-4 h-4 inline mr-1" />重新计算
@@ -645,7 +647,8 @@ export default function SupplyChainPage() {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input type="text" placeholder="搜索..." value={searchKeyword}
                 onChange={e => setSearchKeyword(e.target.value)}
-                className="pl-9 pr-3 py-1.5 text-sm text-slate-800 border border-slate-300 rounded-lg w-52 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none" />
+                style={{color: '#1e293b', WebkitColorScheme: 'light'}}
+                className="pl-9 pr-3 py-1.5 text-sm border border-slate-300 rounded-lg w-52 focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none bg-white" />
             </div>
           </div>
           <div className="flex items-center gap-2">

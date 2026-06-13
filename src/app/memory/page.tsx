@@ -91,8 +91,12 @@ const FILE_ICONS: Record<string, React.ReactNode> = {
   txt: <FileType className="w-5 h-5 text-slate-500" />,
 };
 
-// 统一使用 Next.js API 代理（同源，无跨域问题）
-// 从 localStorage 获取 sessionId 传到请求头，确保代理能转发给 Java 后端
+/**
+ * 统一 API 调用工具
+ * 
+ * 所有请求走 /api/memory/* → Next.js 代理 → Java 后端
+ * 代理层自动处理 session 传递和 URL 重写，前端无需关心
+ */
 function getSessionId(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('session_id');
@@ -101,7 +105,7 @@ function getSessionId(): string | null {
 const memoryApi = {
   get: (path: string) => {
     const sid = getSessionId();
-    return fetch(`/api/proxy/memory${path}`, {
+    return fetch(`/api/memory${path}`, {
       credentials: 'include',
       headers: sid ? { 'X-Session-Id': sid } : undefined,
     });
@@ -111,7 +115,7 @@ const memoryApi = {
     const headers: Record<string, string> = {};
     if (sid) headers['X-Session-Id'] = sid;
     if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
-    return fetch(`/api/proxy/memory${path}`, {
+    return fetch(`/api/memory${path}`, {
       method: 'POST',
       headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
@@ -122,7 +126,7 @@ const memoryApi = {
     const sid = getSessionId();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (sid) headers['X-Session-Id'] = sid;
-    return fetch(`/api/proxy/memory${path}`, {
+    return fetch(`/api/memory${path}`, {
       method: 'PUT',
       headers,
       body: JSON.stringify(body),
@@ -131,7 +135,7 @@ const memoryApi = {
   },
   del: (path: string) => {
     const sid = getSessionId();
-    return fetch(`/api/proxy/memory${path}`, {
+    return fetch(`/api/memory${path}`, {
       method: 'DELETE',
       credentials: 'include',
       headers: sid ? { 'X-Session-Id': sid } : undefined,
@@ -290,14 +294,14 @@ export default function MemoryPage() {
     setIsCreating(true);
     try {
       const res = await memoryApi.post('/cards', {
-          domainCode: newCard.domainCode,
-          title: newCard.title,
-          content: newCard.content,
-          tags: newCard.tags ? newCard.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
-          productCode: newCard.productCode || undefined,
-          source: newCard.source || undefined,
-          confidence: newCard.confidence,
-        });
+        domainCode: newCard.domainCode,
+        title: newCard.title,
+        content: newCard.content,
+        tags: newCard.tags ? newCard.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
+        productCode: newCard.productCode || undefined,
+        source: newCard.source || undefined,
+        confidence: newCard.confidence,
+      });
       const data = await res.json();
       if (data.success) {
         setShowCreateModal(false);
@@ -323,7 +327,7 @@ export default function MemoryPage() {
     }
   };
 
-  // AI问答 (SSE流式 + 上下文)
+  // AI问答 (SSE流式) - 调用 Java 后端的 /memory/chat
   const handleSendChat = useCallback(async () => {
     if (!chatInput.trim() || isChatting) return;
 
@@ -344,6 +348,7 @@ export default function MemoryPage() {
     setChatMessages(prev => [...prev, assistantMsg]);
 
     try {
+      // 调用 /api/memory/chat → 代理到 Java 后端 /api/memory/chat
       const params = new URLSearchParams({
         message: userMsg.content,
         sessionId: currentSessionId,
@@ -351,13 +356,14 @@ export default function MemoryPage() {
       const chatSid = getSessionId();
       const chatHeaders: Record<string, string> = { 'Accept': 'text/event-stream' };
       if (chatSid) chatHeaders['X-Session-Id'] = chatSid;
+
       const res = await fetch(`/api/memory/chat?${params}`, {
         method: 'GET',
         headers: chatHeaders,
         credentials: 'include',
       });
 
-      if (!res.ok) throw new Error('请求失败');
+      if (!res.ok) throw new Error(`请求失败: ${res.status}`);
       if (!res.body) throw new Error('无法读取响应');
 
       const reader = res.body.getReader();
@@ -370,18 +376,16 @@ export default function MemoryPage() {
         if (done) break;
 
         const text = decoder.decode(value, { stream: true });
-        // 解析SSE格式
+        // 解析SSE格式 - Java后端可能返回标准SSE或自定义格式
         const lines = text.split('\n');
-        let currentEvent = '';
 
         for (const line of lines) {
-          if (line.startsWith('event:')) {
-            currentEvent = line.substring(6).trim();
-          } else if (line.startsWith('data:')) {
+          if (line.startsWith('data:')) {
             const dataStr = line.substring(5).trim();
             if (!dataStr) continue;
             try {
               const parsed = JSON.parse(dataStr);
+              // Java后端 SSE 事件格式
               if (parsed.type === 'sources') {
                 sources = parsed.sources;
                 setChatMessages(prev => {
@@ -419,10 +423,38 @@ export default function MemoryPage() {
                 });
               } else if (parsed.type === 'error') {
                 fullContent += `\n\n错误: ${parsed.content || parsed.error || '未知错误'}`;
+              } else if (parsed.content) {
+                // 通用格式: 直接有content字段
+                fullContent += parsed.content;
+                setChatMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    role: 'assistant',
+                    content: fullContent,
+                    sources,
+                    isLoading: false,
+                  };
+                  return updated;
+                });
               }
             } catch {
-              // ignore parse errors
+              // 非JSON，可能是纯文本流
+              if (dataStr && dataStr !== '[DONE]') {
+                fullContent += dataStr;
+                setChatMessages(prev => {
+                  const updated = [...prev];
+                  updated[updated.length - 1] = {
+                    role: 'assistant',
+                    content: fullContent,
+                    sources,
+                    isLoading: false,
+                  };
+                  return updated;
+                });
+              }
             }
+          } else if (line.trim() && !line.startsWith('event:') && !line.startsWith(':')) {
+            // 非标准SSE行，可能是纯文本
           }
         }
       }
@@ -431,7 +463,7 @@ export default function MemoryPage() {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: fullContent,
+          content: fullContent || '抱歉，未获取到回复。',
           sources,
           isLoading: false,
         };
@@ -903,31 +935,28 @@ export default function MemoryPage() {
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                   </div>
                 ) : (
-                  <div className="inline-block max-w-[90%]">
-                    <div className="px-4 py-2.5 rounded-2xl text-sm bg-slate-100 text-slate-800">
-                      {msg.isLoading && !msg.content ? (
-                        <div className="flex items-center gap-1.5 text-slate-400">
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>思考中...</span>
-                        </div>
-                      ) : (
-                        <div className="whitespace-pre-wrap leading-relaxed">{msg.content}</div>
-                      )}
-                    </div>
+                  <div className="max-w-[95%]">
+                    {/* 引用来源 */}
                     {msg.sources && msg.sources.length > 0 && (
-                      <div className="mt-2 p-2 bg-violet-50 rounded-xl">
-                        <span className="text-xs text-violet-600 font-medium">参考来源:</span>
-                        <div className="mt-1 space-y-1">
-                          {msg.sources.map((s, j) => (
-                            <div key={j} className="flex items-center gap-1.5 text-xs">
-                              <CheckCircle className="w-3 h-3 text-violet-500" />
-                              <span className="text-violet-700">{s.title}</span>
-                              <span className="text-slate-400">({s.domain}, {(s.score * 100).toFixed(0)}%)</span>
-                            </div>
-                          ))}
-                        </div>
+                      <div className="mb-2 flex flex-wrap gap-1">
+                        {msg.sources.map((s, si) => (
+                          <span key={si} className="inline-flex items-center gap-1 text-xs px-2 py-1 bg-violet-50 text-violet-700 rounded-lg">
+                            <BookOpen className="w-3 h-3" />
+                            {s.title || s.domain}
+                          </span>
+                        ))}
                       </div>
                     )}
+                    <div className="inline-block px-4 py-2.5 rounded-2xl text-sm bg-slate-100 text-slate-800">
+                      {msg.isLoading ? (
+                        <span className="flex items-center gap-1.5 text-slate-500">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          思考中...
+                        </span>
+                      ) : (
+                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -935,44 +964,105 @@ export default function MemoryPage() {
             <div ref={chatEndRef} />
           </div>
 
-          <div className="p-4 border-t border-slate-200">
+          {/* 输入框 */}
+          <div className="p-3 border-t border-slate-200">
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder="输入问题，支持上下文连续对话..."
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendChat()}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                placeholder="输入问题，基于知识库回答..."
                 disabled={isChatting}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 focus:border-violet-300 disabled:opacity-50"
               />
               <button
                 onClick={handleSendChat}
                 disabled={isChatting || !chatInput.trim()}
                 className="p-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all disabled:opacity-50"
               >
-                {isChatting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                <Send className="w-4 h-4" />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 新建卡片弹窗 */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-[600px] max-h-[80vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-800">新建知识卡片</h3>
-                <button onClick={() => setShowCreateModal(false)} className="p-1 hover:bg-slate-100 rounded-lg">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
+      {/* 查看卡片详情 */}
+      {viewingCard && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setViewingCard(null)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br ${DOMAIN_COLORS[viewingCard.domainCode || viewingCard.domain_code] || 'from-slate-400 to-slate-500'} text-white`}>
+                  {DOMAIN_ICONS[viewingCard.domainCode || viewingCard.domain_code] || <BookOpen className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800">{viewingCard.title}</h2>
+                  <p className="text-xs text-slate-400">
+                    {viewingCard.domain_name || domains.find(d => d.code === (viewingCard.domainCode || viewingCard.domain_code))?.name}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setViewingCard(null)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="prose prose-sm max-w-none text-slate-700 mb-4">
+              <p className="whitespace-pre-wrap">{viewingCard.content}</p>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {(viewingCard.tags || []).map((tag, i) => (
+                <span key={i} className="text-xs px-2 py-1 bg-slate-100 text-slate-600 rounded-lg">
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs text-slate-500">
+              {viewingCard.confidence && (
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  置信度: {confidenceLabel[viewingCard.confidence]?.text || viewingCard.confidence}
+                </div>
+              )}
+              {viewingCard.source && (
+                <div className="flex items-center gap-1.5">
+                  <Eye className="w-3.5 h-3.5" />
+                  来源: {viewingCard.source}
+                </div>
+              )}
+              {viewingCard.product_code && (
+                <div className="flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5" />
+                  产品编码: {viewingCard.product_code}
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                创建时间: {new Date(viewingCard.created_at).toLocaleString()}
               </div>
             </div>
-            <div className="p-6 space-y-4">
+          </div>
+        </div>
+      )}
+
+      {/* 新建卡片模态框 */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowCreateModal(false)}>
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-800">新建知识卡片</h2>
+              <button onClick={() => setShowCreateModal(false)} className="p-1.5 hover:bg-slate-100 rounded-lg">
+                <X className="w-5 h-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-slate-700">知识域 *</label>
+                <label className="text-sm font-medium text-slate-700">知识域</label>
                 <select
                   value={newCard.domainCode}
                   onChange={(e) => setNewCard(prev => ({ ...prev, domainCode: e.target.value }))}
@@ -983,56 +1073,48 @@ export default function MemoryPage() {
                   ))}
                 </select>
               </div>
+
               <div>
                 <label className="text-sm font-medium text-slate-700">标题 *</label>
                 <input
                   type="text"
                   value={newCard.title}
                   onChange={(e) => setNewCard(prev => ({ ...prev, title: e.target.value }))}
-                  placeholder="一句话概括这张卡片的核心判断"
+                  placeholder="知识卡片标题"
                   className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
                 />
               </div>
+
               <div>
                 <label className="text-sm font-medium text-slate-700">内容 *</label>
                 <textarea
                   value={newCard.content}
                   onChange={(e) => setNewCard(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="详细描述经验、判断、数据依据..."
-                  rows={6}
+                  placeholder="知识卡片内容"
+                  rows={5}
                   className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 resize-none"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div>
+                <label className="text-sm font-medium text-slate-700">标签（逗号分隔）</label>
+                <input
+                  type="text"
+                  value={newCard.tags}
+                  onChange={(e) => setNewCard(prev => ({ ...prev, tags: e.target.value }))}
+                  placeholder="面料,织造,参数"
+                  className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-slate-700">标签</label>
-                  <input
-                    type="text"
-                    value={newCard.tags}
-                    onChange={(e) => setNewCard(prev => ({ ...prev, tags: e.target.value }))}
-                    placeholder="用逗号分隔，如：锦纶,40D,丝袜"
-                    className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-slate-700">关联产品编码</label>
+                  <label className="text-sm font-medium text-slate-700">产品编码</label>
                   <input
                     type="text"
                     value={newCard.productCode}
                     onChange={(e) => setNewCard(prev => ({ ...prev, productCode: e.target.value }))}
-                    placeholder="如：HT01"
-                    className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-slate-700">来源</label>
-                  <input
-                    type="text"
-                    value={newCard.source}
-                    onChange={(e) => setNewCard(prev => ({ ...prev, source: e.target.value }))}
-                    placeholder="如：设计师A/行业报告"
+                    placeholder="HT01-S"
                     className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
                   />
                 </div>
@@ -1043,96 +1125,35 @@ export default function MemoryPage() {
                     onChange={(e) => setNewCard(prev => ({ ...prev, confidence: e.target.value }))}
                     className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
                   >
-                    <option value="high">高 - 已验证事实</option>
-                    <option value="medium">中 - 经验判断</option>
-                    <option value="low">低 - 待验证</option>
+                    <option value="high">高</option>
+                    <option value="medium">中</option>
+                    <option value="low">低</option>
                   </select>
                 </div>
               </div>
-            </div>
-            <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                取消
-              </button>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700">来源</label>
+                <input
+                  type="text"
+                  value={newCard.source}
+                  onChange={(e) => setNewCard(prev => ({ ...prev, source: e.target.value }))}
+                  placeholder="行业报告、供应商提供等"
+                  className="mt-1 w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                />
+              </div>
+
               <button
                 onClick={handleCreateCard}
                 disabled={isCreating || !newCard.title || !newCard.content}
-                className="px-6 py-2 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:shadow-lg disabled:opacity-50"
+                className="w-full px-4 py-2.5 bg-gradient-to-r from-violet-500 to-purple-600 text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all disabled:opacity-50"
               >
-                {isCreating ? '创建中...' : '创建卡片'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 查看卡片弹窗 */}
-      {viewingCard && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl w-[600px] max-h-[80vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br ${DOMAIN_COLORS[viewingCard.domainCode || viewingCard.domain_code] || 'from-slate-400 to-slate-500'} text-white`}>
-                    {DOMAIN_ICONS[viewingCard.domainCode || viewingCard.domain_code] || <BookOpen className="w-4 h-4" />}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-800">{viewingCard.title}</h3>
-                    <span className="text-xs text-slate-400">{viewingCard.domain_name || domains.find(d => d.code === (viewingCard.domainCode || viewingCard.domain_code))?.name}</span>
-                  </div>
-                </div>
-                <button onClick={() => setViewingCard(null)} className="p-1 hover:bg-slate-100 rounded-lg">
-                  <X className="w-5 h-5 text-slate-500" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">{viewingCard.content}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {(viewingCard.tags || []).map((tag, i) => (
-                  <span key={i} className="text-xs px-2 py-1 bg-violet-50 text-violet-600 rounded-lg">{tag}</span>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-xs text-slate-500">
-                {(viewingCard.product_code) && (
-                  <div className="flex items-center gap-1">
-                    <Package className="w-3 h-3" />
-                    <span>产品: {viewingCard.product_code}</span>
-                  </div>
-                )}
-                {viewingCard.source && (
-                  <div className="flex items-center gap-1">
-                    <Eye className="w-3 h-3" />
-                    <span>来源: {viewingCard.source}</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  <span>创建: {new Date(viewingCard.created_at).toLocaleString()}</span>
-                </div>
-                {confidenceLabel[viewingCard.confidence] && (
-                  <span className={`px-1.5 py-0.5 rounded-md font-medium ${confidenceLabel[viewingCard.confidence].color}`}>
-                    置信度: {confidenceLabel[viewingCard.confidence].text}
+                {isCreating ? (
+                  <span className="flex items-center justify-center gap-1.5">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    创建中...
                   </span>
-                )}
-              </div>
-            </div>
-            <div className="p-6 border-t border-slate-200 flex justify-between">
-              <button
-                onClick={() => { handleDeleteCard(viewingCard.id); setViewingCard(null); }}
-                className="flex items-center gap-1.5 px-4 py-2 text-red-600 hover:bg-red-50 rounded-xl text-sm"
-              >
-                <Trash2 className="w-4 h-4" />
-                删除卡片
-              </button>
-              <button
-                onClick={() => setViewingCard(null)}
-                className="px-4 py-2 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-50"
-              >
-                关闭
+                ) : '创建卡片'}
               </button>
             </div>
           </div>

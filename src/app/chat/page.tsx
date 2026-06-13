@@ -458,7 +458,7 @@ export default function ChatPage() {
                     bg-white text-slate-800 text-sm resize-none
                     focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-300
                     placeholder:text-slate-400 transition-all duration-200"
-                  style={{ maxHeight: '120px', minHeight: '44px', color: '#1e293b', WebkitColorScheme: 'light' as never }}
+                  style={{ maxHeight: '120px', minHeight: '44px', color: '#1e293b' }}
                   disabled={isChatting}
                 />
               </div>

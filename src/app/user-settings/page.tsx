@@ -100,7 +100,7 @@ export default function UserManagementPage() {
       }
     };
     checkAdmin();
-  }, [router]);
+  }, []);
 
   // 获取用户列表
   const fetchUsers = React.useCallback(async () => {

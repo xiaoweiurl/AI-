@@ -101,7 +101,7 @@ export default function UsersPage() {
     };
     
     fetchData();
-  }, [router]);
+  }, []);
 
   // 筛选用户
   const filteredUsers = React.useMemo(() => {

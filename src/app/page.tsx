@@ -220,6 +220,7 @@ export default function Home() {
   const [brand, setBrand] = React.useState(BRANDS.yingyun);
   const [isLoading, setIsLoading] = React.useState(true);
   const [currentUser, setCurrentUser] = React.useState<CurrentUser | null>(null);
+  const authCheckedRef = React.useRef(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
   const [activeMenuItem, setActiveMenuItem] = React.useState('all');
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -855,6 +856,7 @@ export default function Home() {
             console.log('[Home] 后端不可用(502)，进入降级模式');
             // 降级模式：使用本地 session，不强制跳转
             setCurrentUser({ id: 'local', username: '本地用户', email: '', role: 'user' });
+            authCheckedRef.current = true;
             return;
           }
 
@@ -872,6 +874,7 @@ export default function Home() {
 
           if (result.code === 200 && result.data) {
             setCurrentUser(result.data);
+            authCheckedRef.current = true;
             // 登录成功后获取图片数据和标签列表
             await fetchAllImages();
             await fetchImages();    // 获取当前视图数据
@@ -912,16 +915,16 @@ export default function Home() {
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
-  }, [router]); // 只依赖 router，避免重复执行
+  }, []); // 空依赖，只在挂载时执行一次
 
   // 监听菜单项变化，重新获取数据
   React.useEffect(() => {
     // 排除初始化时（auth check 会自动获取）
-    if (currentUser) {
+    if (currentUser && authCheckedRef.current) {
       console.log('[Home] 菜单项变化:', activeMenuItem, '重新获取数据...');
       fetchImages(1, false);
     }
-  }, [activeMenuItem, currentUser]);
+  }, [activeMenuItem]); // 只依赖 activeMenuItem，不依赖 currentUser
 
   // 批量替换主图 - 打开选择弹窗
   const handleBatchReplaceMainImage = async () => {

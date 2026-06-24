@@ -30,7 +30,7 @@ export default function SwaggerPage() {
       }
     };
     checkAdmin();
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     if (accessDenied || checking) return;

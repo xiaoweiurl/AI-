@@ -96,7 +96,7 @@ export default function SettingsPage() {
     };
     
     fetchData();
-  }, [router]);
+  }, []);
 
   // 保存个人资料
   const handleSaveProfile = async () => {

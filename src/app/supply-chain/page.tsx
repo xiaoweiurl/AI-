@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { backendFetch } from '@/lib/backend-proxy';
 import {
   Package, TrendingUp, DollarSign, Factory,
   Search, Upload, Download, Plus, Edit3, Trash2, ChevronLeft,
@@ -130,11 +131,19 @@ export default function SupplyChainPage() {
   const [totalItems, setTotalItems] = useState(0);
   const pageSize = 20;
 
-  // 认证检查
+  // 认证检查 - 后端不可用时进入降级模式
   useEffect(() => {
     const sessionId = localStorage.getItem('session_id');
     if (!sessionId) {
-      window.location.href = '/login';
+      backendFetch('/albums?pageSize=1').then(res => {
+        if (res.status === 502) {
+          console.log('[SupplyChain] 后端不可用，进入降级模式');
+        } else {
+          window.location.href = '/login';
+        }
+      }).catch(() => {
+        console.log('[SupplyChain] 后端不可用，进入降级模式');
+      });
     }
   }, []);
 
@@ -151,10 +160,8 @@ export default function SupplyChainPage() {
       if (sessionId) headers['X-Session-Id'] = sessionId;
       const res = await fetch(`${getApiBase()}/supply-chain${url}`, { headers });
       if (res.status === 401) {
-        localStorage.removeItem('session_id');
-        localStorage.removeItem('portal_type');
-        localStorage.removeItem('session_expires');
-        window.location.href = '/login';
+        // 401 只在后端可用时才跳转，后端不可用时降级
+        console.log('[SupplyChain] 401 未授权');
         return null;
       }
       if (!res.ok) return null;

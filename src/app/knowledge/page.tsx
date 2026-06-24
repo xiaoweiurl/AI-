@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { backendFetch } from '@/lib/backend-proxy';
 import {
   BookOpen,
   Upload,
@@ -168,22 +169,28 @@ export default function KnowledgePage() {
   // 视图模式
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
-  // 登录检查
+  // 登录检查 - 后端不可用时进入降级模式，不强制跳转
   useEffect(() => {
     const sessionId = localStorage.getItem('session_id');
     if (!sessionId) {
-      window.location.href = '/login';
+      // 先检测后端是否可用，不可用则留在页面（降级模式）
+      backendFetch('/albums?pageSize=1').then(res => {
+        if (res.status === 502) {
+          console.log('[Knowledge] 后端不可用，进入降级模式');
+        } else {
+          window.location.href = '/login';
+        }
+      }).catch(() => {
+        console.log('[Knowledge] 后端不可用，进入降级模式');
+      });
     }
   }, []);
 
-  // 浏览器后退防护
+  // 浏览器后退防护 - 不自动跳转，让正常流程处理
   useEffect(() => {
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
-        const sessionId = localStorage.getItem('session_id');
-        if (!sessionId) {
-          window.location.href = '/login';
-        }
+        console.log('[Knowledge] 从 bfcache 恢复');
       }
     };
     window.addEventListener('pageshow', handlePageShow);

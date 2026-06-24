@@ -821,83 +821,114 @@ export default function Home() {
 
   // 检查用户登录状态（只在组件挂载时执行一次）
   React.useEffect(() => {
+    let cancelled = false;
+
     const checkAuth = async () => {
       try {
-        // 从 localStorage 获取 sessionId
+        // 第一步：检测后端是否可用
+        let backendUp = false;
+        try {
+          const probeRes = await backendFetch('/albums?pageSize=1', {
+            headers: { 'X-Session-Id': localStorage.getItem('session_id') || '' },
+          });
+          backendUp = probeRes.status !== 502;
+        } catch {
+          backendUp = false;
+        }
+
+        if (!backendUp) {
+          console.log('[Home] 后端不可用，进入降级模式');
+          if (!cancelled) {
+            const localUser = localStorage.getItem('user_id');
+            const localUsername = localStorage.getItem('user_name');
+            setCurrentUser({
+              id: localUser || 'local',
+              username: localUsername || '本地用户',
+              email: '',
+              role: 'user',
+            });
+            authCheckedRef.current = true;
+          }
+          return;
+        }
+
+        // 第二步：后端可用，验证 session
         const sessionId = localStorage.getItem('session_id');
         const expires = localStorage.getItem('session_expires');
-        
-        // 检查本地 session
-        if (!sessionId) {
-          console.log('[Home] 无session_id');
-          window.location.href = '/login';
-          return;
-        }
-        
-        if (!expires || Date.now() > parseInt(expires, 10)) {
-          console.log('[Home] Session 已过期');
-          localStorage.removeItem('session_id');
-          localStorage.removeItem('session_expires');
-          localStorage.removeItem('portal_type');
-          window.location.href = '/login';
-          return;
-        }
-        
-        // 验证后端 session
-        try {
-          const response = await backendFetch('/auth/session', {
-            headers: {
-              'X-Session-Id': sessionId,
-            },
-          });
-          
-          // 502 = 代理连不上后端，走降级模式（不跳转登录页）
-          if (response.status === 502) {
-            console.log('[Home] 后端不可用(502)，进入降级模式');
-            // 降级模式：使用本地 session，不强制跳转
-            setCurrentUser({ id: 'local', username: '本地用户', email: '', role: 'user' });
-            authCheckedRef.current = true;
-            return;
-          }
 
-          if (!response.ok) {
-            console.log('[Home] 后端session验证失败, status:', response.status);
+        if (!sessionId) {
+          console.log('[Home] 无session_id，跳转登录');
+          if (!cancelled) window.location.href = '/login';
+          return;
+        }
+
+        if (!expires || Date.now() > parseInt(expires, 10)) {
+          console.log('[Home] Session 已过期，跳转登录');
+          if (!cancelled) {
             localStorage.removeItem('session_id');
             localStorage.removeItem('session_expires');
             localStorage.removeItem('portal_type');
             window.location.href = '/login';
+          }
+          return;
+        }
+
+        // 验证后端 session
+        try {
+          const response = await backendFetch('/auth/session', {
+            headers: { 'X-Session-Id': sessionId },
+          });
+
+          if (!response.ok) {
+            console.log('[Home] 后端session验证失败, status:', response.status);
+            if (!cancelled) {
+              localStorage.removeItem('session_id');
+              localStorage.removeItem('session_expires');
+              localStorage.removeItem('portal_type');
+              window.location.href = '/login';
+            }
             return;
           }
-          
+
           const result = await response.json();
           console.log('[Home] 会话验证结果:', result);
 
           if (result.code === 200 && result.data) {
-            setCurrentUser(result.data);
-            authCheckedRef.current = true;
-            // 登录成功后获取图片数据和标签列表
-            await fetchAllImages();
-            await fetchImages();    // 获取当前视图数据
-            await fetchTags();
-            await fetchAlbums();    // 获取相册列表
-            fetchDynamicTableCount(); // 获取动态表数量
+            if (!cancelled) {
+              setCurrentUser(result.data);
+              authCheckedRef.current = true;
+              await fetchAllImages();
+              await fetchImages();
+              await fetchTags();
+              await fetchAlbums();
+              fetchDynamicTableCount();
+            }
           } else {
-            // 未登录，跳转到登录页
             console.log('[Home] 会话验证失败, result:', result);
-            localStorage.removeItem('session_id');
-            localStorage.removeItem('session_expires');
-            localStorage.removeItem('portal_type');
-            window.location.href = '/login';
+            if (!cancelled) {
+              localStorage.removeItem('session_id');
+              localStorage.removeItem('session_expires');
+              localStorage.removeItem('portal_type');
+              window.location.href = '/login';
+            }
           }
         } catch (error) {
           console.error('[Home] 检查登录状态失败:', error);
-          // 网络错误时不强制跳转登录页，先使用本地session
-          // 让用户能看到页面，后续操作失败时再提示
+          // 网络错误时进入降级模式，不强制跳转登录页
+          if (!cancelled) {
+            setCurrentUser({ id: 'local', username: '本地用户', email: '', role: 'user' });
+            authCheckedRef.current = true;
+          }
         }
       } catch (error) {
         console.error('[Home] 登录检查异常:', error);
+        // 异常时进入降级模式
+        if (!cancelled) {
+          setCurrentUser({ id: 'local', username: '本地用户', email: '', role: 'user' });
+          authCheckedRef.current = true;
+        }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
@@ -906,15 +937,15 @@ export default function Home() {
     // 监听浏览器后退/前进，确保登出后无法通过后退回到页面
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) {
-        // 从 bfcache 恢复，重新检查登录状态
-        const sessionId = localStorage.getItem('session_id');
-        if (!sessionId) {
-          window.location.href = '/login';
-        }
+        // 从 bfcache 恢复时不自动跳转，让正常流程处理
+        console.log('[Home] 从 bfcache 恢复');
       }
     };
     window.addEventListener('pageshow', handlePageShow);
-    return () => window.removeEventListener('pageshow', handlePageShow);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('pageshow', handlePageShow);
+    };
   }, []); // 空依赖，只在挂载时执行一次
 
   // 监听菜单项变化，重新获取数据

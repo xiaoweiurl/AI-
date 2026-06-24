@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { backendFetch } from '@/lib/backend-proxy';
 import { Send, Trash2, Bot, User, Sparkles, Loader2, ArrowLeft, Scissors, Cloud } from 'lucide-react';
 import { getCurrentBrand, BRANDS } from '@/lib/brand';
 import { cn } from '@/lib/utils';
@@ -42,7 +43,20 @@ export default function MarketingChatPage() {
     const storedCompany = localStorage.getItem('user_company') || '';
     const storedUserId = localStorage.getItem('user_id') || '';
     if (!storedCompany || !storedUserId) {
-      window.location.href = '/login';
+      // 后端不可用时降级，不强制跳转
+      backendFetch('/albums?pageSize=1').then(res => {
+        if (res.status === 502) {
+          console.log('[Marketing] 后端不可用，进入降级模式');
+          setCompany('盈云');
+          setUserId('local');
+        } else {
+          window.location.href = '/login';
+        }
+      }).catch(() => {
+        console.log('[Marketing] 后端不可用，进入降级模式');
+        setCompany('盈云');
+        setUserId('local');
+      });
       return;
     }
     setCompany(storedCompany);

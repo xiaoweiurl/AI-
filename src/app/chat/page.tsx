@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { backendFetch } from '@/lib/backend-proxy';
 import {
   MessageSquare, Send, Plus, Trash2, ArrowLeft,
   Bot, User, BookOpen, Brain, Loader2, Sparkles
@@ -105,17 +106,42 @@ export default function ChatPage() {
   useEffect(() => {
     if (!mounted) return;
 
-    const checkAuth = () => {
+    const checkAuth = async () => {
       try {
         const sid = localStorage.getItem('session_id');
         const expires = localStorage.getItem('session_expires');
 
         if (!sid) {
+          // 先检测后端是否可用，不可用则降级
+          try {
+            const probeRes = await backendFetch('/albums?pageSize=1');
+            if (probeRes.status === 502) {
+              console.log('[Chat] 后端不可用，进入降级模式');
+              setAuthChecked(true);
+              return;
+            }
+          } catch {
+            console.log('[Chat] 后端不可用，进入降级模式');
+            setAuthChecked(true);
+            return;
+          }
           window.location.href = '/login';
           return;
         }
 
         if (expires && Date.now() > parseInt(expires, 10)) {
+          // 过期时也先检查后端
+          try {
+            const probeRes = await backendFetch('/albums?pageSize=1');
+            if (probeRes.status === 502) {
+              console.log('[Chat] 后端不可用，过期session忽略');
+              setAuthChecked(true);
+              return;
+            }
+          } catch {
+            setAuthChecked(true);
+            return;
+          }
           localStorage.removeItem('session_id');
           localStorage.removeItem('session_expires');
           localStorage.removeItem('portal_type');

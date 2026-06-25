@@ -452,6 +452,71 @@ public class SmartChatServiceImpl implements SmartChatService {
     }
 
     @Override
+    @Override
+    public List<Map<String, Object>> getChatHistory(String userId, String company, String conversationId, String mode) {
+        String modeCondition = "";
+        Object[] params;
+        if (mode != null && !mode.isEmpty()) {
+            modeCondition = " AND (mode = ? OR mode IS NULL) ";
+        }
+
+        List<Map<String, Object>> results;
+        if (conversationId != null && !conversationId.isEmpty()) {
+            // 按conversationId查询对话历史
+            String sql = "SELECT role, content, reasoning_content, created_at FROM smart_chat_history " +
+                    "WHERE conversation_id = ?::uuid AND user_id = ? AND (company = ? OR company IS NULL) " +
+                    modeCondition +
+                    "ORDER BY created_at ASC LIMIT 100";
+            if (mode != null && !mode.isEmpty()) {
+                params = new Object[]{conversationId, userId, company, mode};
+            } else {
+                params = new Object[]{conversationId, userId, company};
+            }
+            results = jdbcTemplate.query(sql,
+                    (rs, rowNum) -> {
+                        Map<String, Object> msg = new LinkedHashMap<>();
+                        msg.put("role", rs.getString("role"));
+                        msg.put("content", rs.getString("content"));
+                        String reasoning = rs.getString("reasoning_content");
+                        if (reasoning != null && !reasoning.isEmpty()) {
+                            msg.put("reasoning", reasoning);
+                        }
+                        msg.put("createdAt", rs.getTimestamp("created_at").toLocalDateTime().toString());
+                        return msg;
+                    },
+                    params
+            );
+        } else {
+            // 兼容旧逻辑：按userId+company查询最近10轮对话
+            String sql = "SELECT role, content, reasoning_content, created_at FROM smart_chat_history " +
+                    "WHERE user_id = ? AND (company = ? OR company IS NULL) " +
+                    modeCondition +
+                    "ORDER BY created_at DESC LIMIT 20";
+            if (mode != null && !mode.isEmpty()) {
+                params = new Object[]{userId, company, mode};
+            } else {
+                params = new Object[]{userId, company};
+            }
+            results = jdbcTemplate.query(sql,
+                    (rs, rowNum) -> {
+                        Map<String, Object> msg = new LinkedHashMap<>();
+                        msg.put("role", rs.getString("role"));
+                        msg.put("content", rs.getString("content"));
+                        String reasoning = rs.getString("reasoning_content");
+                        if (reasoning != null && !reasoning.isEmpty()) {
+                            msg.put("reasoning", reasoning);
+                        }
+                        msg.put("createdAt", rs.getTimestamp("created_at").toLocalDateTime().toString());
+                        return msg;
+                    },
+                    params
+            );
+            Collections.reverse(results);
+        }
+        return results;
+    }
+
+    // 兼容旧版3参数调用
     public List<Map<String, Object>> getChatHistory(String userId, String company, String conversationId) {
         List<Map<String, Object>> results;
         if (conversationId != null && !conversationId.isEmpty()) {

@@ -734,7 +734,22 @@ export default function Sidebar({
       children: buildAlbumHierarchy(albums),
       showAddButton: true,
     },
-    // 文档中心 - 替换原智能相册
+    {
+      id: 'chat',
+      label: 'AI 对话',
+      icon: MessageSquare,
+    },
+    {
+      id: 'knowledge',
+      label: '知识库',
+      icon: BookOpen,
+    },
+    {
+      id: 'ai-image',
+      label: 'AI 生图',
+      icon: Sparkles,
+    },
+    // 文档中心
     {
       id: 'documents',
       label: '文档中心',
@@ -748,21 +763,6 @@ export default function Sidebar({
         { id: 'doc-zip', label: '压缩包', icon: Archive, count: documentStats?.zip || 0 },
         { id: 'doc-other', label: '其他文件', icon: File, count: documentStats?.other || 0 },
       ],
-    },
-    {
-      id: 'knowledge',
-      label: '知识库',
-      icon: BookOpen,
-    },
-    {
-      id: 'chat',
-      label: 'AI 对话',
-      icon: MessageSquare,
-    },
-    {
-      id: 'ai-image',
-      label: 'AI 生图',
-      icon: Sparkles,
     },
     {
       id: 'recent',

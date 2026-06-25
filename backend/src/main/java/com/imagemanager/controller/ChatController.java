@@ -69,12 +69,13 @@ public class ChatController {
     public SseEmitter smartChat(
             @RequestParam String message,
             @RequestParam(required = false) String conversationId,
+            @RequestParam(required = false) String mode,
             HttpServletRequest request) {
         try {
             LoginResponse.UserInfo user = getCurrentUser(request);
             String userId = resolveUserId(user);
             String company = resolveCompany(user);
-            return smartChatService.smartChat(message, userId, company, conversationId);
+            return smartChatService.smartChat(message, userId, company, conversationId, mode);
         } catch (Exception e) {
             SseEmitter emitter = new SseEmitter(60000L);
             try {

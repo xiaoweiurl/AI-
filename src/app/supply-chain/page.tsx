@@ -9,7 +9,7 @@ import {
   ChevronRight, RefreshCw, Calculator, Target, Zap,
   ChevronDown, Check, AlertCircle, Info, Warehouse,
   ShoppingBag, BoxIcon, Cog, BarChart3, Sparkles, Scissors, Cloud,
-  ArrowLeft
+  ArrowLeft, MessageSquare, Send, Bot, User, X, Copy, CheckCircle, Globe
 } from 'lucide-react';
 import { getCurrentBrand, BRANDS } from '@/lib/brand';
 import { cn } from '@/lib/utils';
@@ -68,9 +68,10 @@ interface SupplierCompare {
   bestPrice: number; bestSupplier: string; worstPrice: number; savingRate: number;
 }
 
-type TabKey = 'dashboard' | 'smart-quote' | 'quotation' | 'warehouse' | 'purchase' | 'plan' | 'accessory';
+type TabKey = 'chat' | 'dashboard' | 'smart-quote' | 'quotation' | 'warehouse' | 'purchase' | 'plan' | 'accessory';
 
 const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
+  { key: 'chat', label: 'AI 对话', icon: <MessageSquare className="w-4 h-4" /> },
   { key: 'dashboard', label: '智能仪表盘', icon: <BarChart3 className="w-4 h-4" /> },
   { key: 'smart-quote', label: '智能报价', icon: <Sparkles className="w-4 h-4" /> },
   { key: 'quotation', label: '产品报价', icon: <FileText className="w-4 h-4" /> },
@@ -81,6 +82,25 @@ const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
 ];
 
 // ============ 工具函数 ============
+function formatChatContent(text: string): string {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    // 粗体
+    .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>')
+    // 行内代码
+    .replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-mono">$1</code>')
+    // 标题
+    .replace(/^### (.+)$/gm, '<h3 class="text-sm font-semibold text-slate-800 mt-3 mb-1">$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2 class="text-base font-semibold text-slate-800 mt-3 mb-1">$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1 class="text-lg font-bold text-slate-900 mt-3 mb-1">$1</h1>')
+    // 列表
+    .replace(/^\s*[-*] (.+)$/gm, '<li class="ml-4 list-disc text-slate-700">$1</li>')
+    .replace(/^\s*\d+\. (.+)$/gm, '<li class="ml-4 list-decimal text-slate-700">$1</li>')
+    // 换行
+    .replace(/\n/g, '<br/>');
+  return html;
+}
 function formatMoney(val: number | string | null): string {
   if (val == null) return '-';
   const n = typeof val === 'string' ? parseFloat(val) : val;
@@ -109,6 +129,20 @@ export default function SupplyChainPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>('dashboard');
   const [loading, setLoading] = useState(false);
+
+  // AI对话状态
+  const [chatMessages, setChatMessages] = useState<Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    reasoning?: string;
+    isThinking?: boolean;
+    searchResults?: Array<{ title: string; url: string }>;
+  }>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+  const isUserScrollingRef = useRef(false);
+  const chatScrollContainerRef = useRef<HTMLDivElement>(null);
 
   // 数据
   const [quotations, setQuotations] = useState<QuotationItem[]>([]);
@@ -269,6 +303,116 @@ export default function SupplyChainPage() {
   };
 
   // ============ 退出登录 ============
+  // ============ AI对话 ============
+  const handleFactoryChat = useCallback(async (message?: string) => {
+    const msg = message || chatInput.trim();
+    if (!msg || chatLoading) return;
+
+    const userMsg = { role: 'user' as const, content: msg };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setChatLoading(true);
+    isUserScrollingRef.current = false;
+
+    const assistantMsg: typeof chatMessages[0] = {
+      role: 'assistant',
+      content: '',
+      reasoning: '',
+      isThinking: true,
+      searchResults: [],
+    };
+    setChatMessages(prev => [...prev, assistantMsg]);
+
+    try {
+      const sid = localStorage.getItem('session_id');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'text/event-stream',
+      };
+      if (sid) headers['X-Session-Id'] = sid;
+
+      const params = new URLSearchParams({ message: msg, mode: 'factory' });
+      const res = await fetch(`/api/chat/smart?${params}`, {
+        credentials: 'include',
+        headers,
+      });
+
+      if (!res.ok) throw new Error('请求失败');
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('无法读取流');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.type === 'reasoning_delta' && parsed.content) {
+              setChatMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                updated[updated.length - 1] = { ...last, reasoning: (last.reasoning || '') + parsed.content };
+                return updated;
+              });
+            } else if (parsed.type === 'content' && parsed.content) {
+              setChatMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                updated[updated.length - 1] = { ...last, content: (last.content || '') + parsed.content, isThinking: false };
+                return updated;
+              });
+            } else if (parsed.type === 'web_search_result' && parsed.results) {
+              setChatMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                updated[updated.length - 1] = { ...last, searchResults: parsed.results };
+                return updated;
+              });
+            } else if (parsed.type === 'done') {
+              setChatMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                updated[updated.length - 1] = { ...last, isThinking: false };
+                return updated;
+              });
+            }
+          } catch { /* ignore parse errors */ }
+        }
+      }
+    } catch (err) {
+      setChatMessages(prev => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last.role === 'assistant') {
+          updated[updated.length - 1] = { ...last, content: '抱歉，请求出现问题，请稍后再试。', isThinking: false };
+        }
+        return updated;
+      });
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading]);
+
+  // 自动滚动到底部
+  useEffect(() => {
+    if (!isUserScrollingRef.current && chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [chatMessages]);
+
   const handleLogout = () => {
     localStorage.removeItem('session_id');
     localStorage.removeItem('session_expires');
@@ -773,6 +917,149 @@ export default function SupplyChainPage() {
           </div>
         ) : (
           <>
+            {activeTab === 'chat' && (
+              <div className="flex flex-col h-[calc(100vh-140px)] bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+                {/* 聊天消息区 */}
+                <div
+                  ref={chatScrollContainerRef}
+                  className="flex-1 overflow-y-auto px-6 py-4 space-y-4"
+                  onScroll={() => {
+                    if (chatScrollContainerRef.current) {
+                      const { scrollTop, scrollHeight, clientHeight } = chatScrollContainerRef.current;
+                      isUserScrollingRef.current = scrollHeight - scrollTop - clientHeight > 120;
+                    }
+                  }}
+                >
+                  {chatMessages.length === 0 && (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center mb-4 shadow-lg">
+                        <MessageSquare className="w-8 h-8 text-white" />
+                      </div>
+                      <h2 className="text-xl font-bold text-slate-800 mb-2">工厂AI助手</h2>
+                      <p className="text-sm text-slate-500 mb-6 max-w-md">基于DeepSeek大模型，专注供应链与工厂业务知识，支持产品报价、原料采购、生产计划等智能问答</p>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-600 border border-orange-200/60">产品报价</span>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-200/60">原料采购</span>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-600 border border-emerald-200/60">生产计划</span>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-sky-50 text-sky-600 border border-sky-200/60 border">联网搜索</span>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
+                          <Zap className="w-3 h-3 inline-block text-yellow-500 mr-0.5" />DeepSeek V4 Pro
+                        </span>
+                      </div>
+                      <div className="mt-6 flex flex-col gap-2">
+                        {['帮我分析原料采购的供应商报价', '最新的涤纶面料市场行情如何', '查询产品SK-H001的成本构成'].map(q => (
+                          <button key={q} onClick={() => handleFactoryChat(q)}
+                            className="text-left px-4 py-2.5 text-sm text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200/60">
+                            <span className="text-slate-400 mr-1.5">→</span>{q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {chatMessages.map((msg, idx) => (
+                    <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                      {msg.role === 'assistant' && (
+                        <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-sm">
+                          <Bot className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <div className={`max-w-[80%] ${msg.role === 'user' ? 'order-first' : ''}`}>
+                        {/* 思维链 */}
+                        {msg.reasoning && msg.reasoning.length > 0 && (
+                          <details className="mb-2 group">
+                            <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-500 transition-colors flex items-center gap-1">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-slate-400 animate-pulse" />
+                              思考过程
+                            </summary>
+                            <div className="mt-1 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200/60 text-xs text-slate-500 whitespace-pre-wrap leading-relaxed">
+                              {msg.reasoning}
+                            </div>
+                          </details>
+                        )}
+                        {/* 搜索结果 */}
+                        {msg.searchResults && msg.searchResults.length > 0 && (
+                          <details className="mb-2 group" open>
+                            <summary className="text-xs text-sky-500 cursor-pointer hover:text-sky-600 transition-colors flex items-center gap-1">
+                              <Globe className="w-3 h-3" />联网搜索结果
+                            </summary>
+                            <div className="mt-1 px-3 py-2 bg-sky-50/50 rounded-lg border border-sky-200/60 text-xs space-y-1">
+                              {msg.searchResults.map((r, i) => (
+                                <div key={i} className="text-sky-700 truncate">
+                                  <span className="text-sky-400 mr-1">{i + 1}.</span>
+                                  {r.title}
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                        {/* 消息内容 */}
+                        <div className={`px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                          msg.role === 'user'
+                            ? 'bg-slate-700 text-white rounded-br-md'
+                            : 'bg-slate-50 text-slate-800 rounded-bl-md border border-slate-200/60'
+                        }`}>
+                          {msg.role === 'assistant' ? (
+                            <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{
+                              __html: formatChatContent(msg.content || (msg.isThinking ? '正在思考...' : ''))
+                            }} />
+                          ) : (
+                            msg.content
+                          )}
+                        </div>
+                        {/* 复制按钮 */}
+                        {msg.role === 'assistant' && msg.content && !msg.isThinking && (
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(msg.content); }}
+                            className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs text-slate-400 hover:text-slate-600 flex items-center gap-1"
+                          >
+                            <Copy className="w-3 h-3" />复制
+                          </button>
+                        )}
+                      </div>
+                      {msg.role === 'user' && (
+                        <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center shadow-sm">
+                          <User className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div ref={chatMessagesEndRef} />
+                </div>
+                {/* 输入区 */}
+                <div className="border-t border-slate-200/60 px-4 py-3 bg-white">
+                  <div className="flex gap-2 items-end">
+                    <textarea
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleFactoryChat();
+                        }
+                      }}
+                      placeholder="输入工厂业务问题..."
+                      rows={1}
+                      className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition-all"
+                    />
+                    <button
+                      onClick={() => handleFactoryChat()}
+                      disabled={chatLoading || !chatInput.trim()}
+                      className="shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 text-white flex items-center justify-center hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mt-2">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-50 text-orange-600 border border-orange-200/60">供应链数据</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-600 border border-emerald-200/60">知识库</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-sky-50 text-sky-600 border border-sky-200/60">联网搜索</span>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200/60">
+                      <Zap className="w-2.5 h-2.5 inline-block text-yellow-500 mr-0.5" />DeepSeek V4 Pro
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
             {activeTab === 'dashboard' && renderDashboard()}
             {activeTab === 'smart-quote' && renderSmartQuote()}
             {['quotation', 'warehouse', 'purchase', 'plan', 'accessory'].includes(activeTab) && renderDataTable()}

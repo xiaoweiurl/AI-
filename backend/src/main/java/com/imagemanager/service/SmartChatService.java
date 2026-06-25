@@ -20,13 +20,20 @@ public interface SmartChatService {
      * @param conversationId 对话ID（可选，为null时自动使用当前活跃对话）
      * @return SSE流式发射器
      */
-    SseEmitter smartChat(String message, String userId, String company, String conversationId);
+    SseEmitter smartChat(String message, String userId, String company, String conversationId, String mode);
+
+    /**
+     * 智能对话 (SSE流式) - 兼容旧接口(无mode)
+     */
+    default SseEmitter smartChat(String message, String userId, String company, String conversationId) {
+        return smartChat(message, userId, company, conversationId, null);
+    }
 
     /**
      * 智能对话 (SSE流式) - 兼容旧接口
      */
     default SseEmitter smartChat(String message, String userId, String company) {
-        return smartChat(message, userId, company, null);
+        return smartChat(message, userId, company, null, null);
     }
 
     /**

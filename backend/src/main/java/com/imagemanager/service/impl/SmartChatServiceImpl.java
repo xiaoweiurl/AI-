@@ -106,9 +106,12 @@ public class SmartChatServiceImpl implements SmartChatService {
                 // 岗位意图识别
                 boolean positionIntent = isPositionIntent(message);
 
+                // 通用闲聊意图识别：当用户问的是闲聊/身份/通用常识类问题时，跳过所有知识库检索
+                boolean generalChatIntent = isGeneralChatIntent(message);
+
                 // 3. 供应链/工厂数据检索(优先检索，命中后降低知识库检索权重)
                 List<Map<String, Object>> supplyChainResults = Collections.emptyList();
-                if (supplyChainIntent) {
+                if (supplyChainIntent && !generalChatIntent) {
                     try {
                         supplyChainResults = searchSupplyChain(message);
                         log.info("供应链数据检索到 {} 条结果", supplyChainResults.size());
@@ -117,8 +120,8 @@ public class SmartChatServiceImpl implements SmartChatService {
                     }
                 }
 
-                // 4. 双库检索（当强供应链意图且已找到数据时，跳过向量检索，避免不相关文档干扰）
-                boolean skipVectorSearch = strongSupplyChainIntent && !supplyChainResults.isEmpty();
+                // 4. 双库检索（当强供应链意图且已找到数据时，或通用闲聊意图时，跳过向量检索）
+                boolean skipVectorSearch = (strongSupplyChainIntent && !supplyChainResults.isEmpty()) || generalChatIntent;
 
                 // 4a. 岗位卡片向量检索（优先于知识库PDF，避免岗位问题被无关PDF干扰）
                 List<Map<String, Object>> positionCardResults = Collections.emptyList();
@@ -131,7 +134,7 @@ public class SmartChatServiceImpl implements SmartChatService {
                     }
                 }
 
-                // 当岗位意图且岗位卡片有结果时，跳过知识库PDF检索，避免不相关文档干扰岗位问题
+                // 当岗位意图且岗位卡片有结果时，或通用闲聊意图时，跳过知识库PDF检索
                 boolean skipKnowledgeSearch = skipVectorSearch || (positionIntent && !positionCardResults.isEmpty());
 
                 // 4b. 记忆库检索(PostgreSQL向量)
@@ -144,7 +147,7 @@ public class SmartChatServiceImpl implements SmartChatService {
                         log.warn("记忆库检索异常: {}", e.getMessage());
                     }
                 } else {
-                    log.info("强供应链意图且已命中数据，跳过记忆库检索避免干扰");
+                    log.info("跳过向量检索: generalChatIntent={}, strongSupplyChain={}", generalChatIntent, strongSupplyChainIntent && !supplyChainResults.isEmpty());
                 }
 
                 // 4c. 知识库检索(Coze SDK via Next.js)
@@ -157,7 +160,8 @@ public class SmartChatServiceImpl implements SmartChatService {
                         log.warn("知识库检索异常: {}", e.getMessage());
                     }
                 } else {
-                    log.info("跳过知识库检索避免干扰（原因: {}）", skipVectorSearch ? "强供应链意图" : "岗位意图已命中岗位卡片");
+                    String reason = generalChatIntent ? "通用闲聊意图" : (skipVectorSearch ? "强供应链意图" : "岗位意图已命中岗位卡片");
+                    log.info("跳过知识库检索避免干扰（原因: {}）", reason);
                 }
 
                 // 4d. 图片搜索(当用户意图涉及找图时)
@@ -872,6 +876,68 @@ public class SmartChatServiceImpl implements SmartChatService {
         for (String kw : patterns) {
             if (lower.contains(kw)) return true;
         }
+        return false;
+    }
+
+    /**
+     * 通用闲聊意图识别 - 当用户问的是闲聊/身份/通用常识类问题时，
+     * 不需要检索知识库/记忆库/岗位卡片，直接由大模型自身知识回答。
+     * 
+     * 判断逻辑：
+     * 1. 消息很短（<=10字）且不包含任何专业领域关键词
+     * 2. 包含典型的闲聊/身份/问候/元问题关键词
+     */
+    private boolean isGeneralChatIntent(String message) {
+        String lower = message.toLowerCase().trim();
+        
+        // 典型的通用闲聊关键词（元问题/身份/问候/闲聊）
+        String[] generalPatterns = {
+            // AI身份/元问题
+            "你是谁", "你是什么", "你叫什么", "你叫啥", "你的名字",
+            "什么模型", "哪个模型", "什么大模型", "你用的什么模型",
+            "你是ai", "你是人工智能", "你是机器人", "你是助手",
+            "你能做什么", "你会什么", "你有什么功能", "你擅长什么",
+            "你是gpt", "你是chatgpt", "你是deepseek", "你是minimax",
+            // 问候/闲聊
+            "你好", "嗨", "哈喽", "hello", "hi ", "早上好", "下午好", "晚上好",
+            "再见", "拜拜", "谢谢", "感谢",
+            "讲个笑话", "说个笑话", "脑筋急转弯", "猜谜",
+            // 通用常识/编程/数学（非企业内部）
+            "写一段代码", "帮我写代码", "python", "java代码", "javascript",
+            "翻译一下", "翻译成", "算一下", "计算",
+            "今天天气", "几号了", "几点了", "星期几",
+            "推荐一部", "推荐一首", "推荐一本",
+            // 纯感叹/无意义
+            "哈哈", "呵呵", "嗯嗯", "好的", "ok", "明白", "知道了"
+        };
+        
+        for (String kw : generalPatterns) {
+            if (lower.contains(kw)) return true;
+        }
+        
+        // 消息很短（<=6字）且不包含任何专业领域关键词，很可能是闲聊
+        if (lower.length() <= 6) {
+            // 排除可能是专业问题的情况
+            String[] domainHints = {
+                "报价", "成本", "原料", "纱线", "单价", "采购", "供应商",
+                "岗位", "职责", "流程", "工艺", "生产", "入库",
+                "文档", "知识", "手册", "规范", "标准", "操作"
+            };
+            for (String hint : domainHints) {
+                if (lower.contains(hint)) return false;
+            }
+            // 短消息+无领域关键词 = 很可能闲聊
+            // 但也要排除真正的短问题，比如"袜子怎么织"
+            // 只排除纯感叹/纯问候/纯身份问题
+            String[] shortGeneral = {
+                "你好", "嗨", "hi", "ok", "谢谢", "感谢", "好的",
+                "再见", "拜拜", "嗯", "啊", "哦", "哈", "嘿"
+            };
+            for (String kw : shortGeneral) {
+                if (lower.equals(kw)) return true;
+            }
+        }
+        
         return false;
     }
 

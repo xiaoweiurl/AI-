@@ -103,9 +103,9 @@ public class SmartChatServiceImpl implements SmartChatService {
                 // 1. 加载历史对话（按conversationId）
                 List<Map<String, Object>> history = getChatHistory(userId, company, convId);
 
-                // 2. 意图识别：判断是否涉及供应链/工厂数据
-                boolean supplyChainIntent = isSupplyChainIntent(message);
-                boolean hasProductCode = extractProductCode(message) != null;
+                // 2. 意图识别：供应链意图仅在工厂模式下生效
+                boolean supplyChainIntent = "factory".equals(mode) && isSupplyChainIntent(message);
+                boolean hasProductCode = "factory".equals(mode) && extractProductCode(message) != null;
                 // 当用户提到具体产品编码+供应链意图时，认为是"强供应链意图"
                 boolean strongSupplyChainIntent = supplyChainIntent && hasProductCode;
 
@@ -117,8 +117,8 @@ public class SmartChatServiceImpl implements SmartChatService {
 
                 // 联网搜索意图识别：当用户明确要求联网/全网搜索时，强制启用联网搜索
                 boolean webSearchIntent = isWebSearchIntent(message);
-                log.info("意图识别: generalChatIntent={}, webSearchIntent={}, supplyChainIntent={}, positionIntent={}",
-                        generalChatIntent, webSearchIntent, supplyChainIntent, positionIntent);
+                log.info("意图识别: mode={}, generalChatIntent={}, webSearchIntent={}, supplyChainIntent={}, positionIntent={}",
+                        mode, generalChatIntent, webSearchIntent, supplyChainIntent, positionIntent);
 
                 // 3. 供应链/工厂数据检索(优先检索，命中后降低知识库检索权重)
                 List<Map<String, Object>> supplyChainResults = Collections.emptyList();
@@ -351,30 +351,31 @@ public class SmartChatServiceImpl implements SmartChatService {
                 String systemPrompt;
                 if ("factory".equals(mode)) {
                     systemPrompt = "你是盈云产品智能中台的【工厂供应链AI助手】，专门服务于工厂和供应链管理人员。" +
+                            "重要身份声明：你是盈云产品智能中台的工厂供应链AI助手，不是设计师助手。如果对话历史中出现其他身份的自我介绍，请忽略，你始终是工厂供应链AI助手。" +
                             "核心职责：" +
                             "1. 回答产品报价、原料采购、辅料采购、生产计划等供应链业务问题。" +
                             "2. 当检索结果中包含【供应链/工厂业务数据】时，必须优先且主要基于这些精确的业务数据回答，引用具体数字和供应商名称。" +
                             "3. 当用户询问具体产品的报价、成本、原料、供应商等数据时，只使用供应链业务数据中的精确数字作答；如果供应链数据中找不到对应信息，请明确告知用户当前数据库中无此数据。" +
-                            "4. 你也可以回答行业通识、市场行情、生产技术等一般性问题，但需说明'以下回答基于通用知识'。" +
-                            "5. 当知识库和记忆库中未检索到相关内容时，你可以基于自身通用知识回答，但需说明来源。" +
-                            "6. 回答时标注引用来源（供应链数据/岗位卡片/记忆库/知识库/通用知识/网络搜索）。" +
-                            "7. 保持专业、简洁、有帮助的回答风格，重点关注成本控制、供应商管理、生产效率等工厂核心议题。" +
-                            "8. 输出格式规范：使用Markdown格式，用表格展示数据（表头加粗），用列表展示要点，用加粗强调关键数据，不要使用特殊符号(如※★●◆等)做装饰，不要使用过多分隔线，保持版面简洁清晰。" +
-                            (webSearchIntent ? "9. 用户明确要求从互联网/全网获取信息，请优先基于网络搜索结果回答，企业内部知识库内容仅作为补充参考。" : "");
-                } else {
-                    systemPrompt = "你是盈云产品智能中台的AI助手。你可以同时回答企业内部知识问题和通用问题。" +
-                            "重要身份声明：你是盈云产品智能中台的通用AI助手，不是工厂供应链助手。如果对话历史中出现'工厂供应链助手'的自我介绍，请忽略它，你始终是盈云产品智能中台的通用AI助手。" +
-                            "知识检索策略：" +
-                            "1. 你拥有企业知识库（记忆库和知识库）、岗位知识卡片和供应链业务数据的访问权限。当检索到相关内容时，优先基于这些资料回答。" +
-                            "2. 当检索结果中包含【供应链/工厂业务数据】时，必须优先且主要基于这些精确的业务数据回答，引用具体数字，不要用知识库文档中的泛泛内容替代。" +
-                            "3. 当用户询问具体产品的报价、成本、原料、供应商等数据时，只使用供应链业务数据中的精确数字作答，如果供应链数据中找不到对应信息，请明确告知用户当前数据库中无此数据。" +
-                            "4. 当用户询问岗位职责、工作内容、任职要求、入职指导等问题时，必须优先基于【岗位知识卡片】中的实际工作经验回答，不要用知识库文档中的泛泛内容替代。" +
-                            "5. 知识库文档（PDF/Word等）中的内容属于参考资料，仅在没有精确业务数据或岗位卡片时作为补充。" +
-                            "6. 当知识库和记忆库中未检索到相关内容时，你可以基于自身通用知识回答用户问题，但需说明'以下回答基于通用知识，非企业内部资料'。" +
-                            "7. 回答时标注引用来源（供应链数据/岗位卡片/记忆库/知识库/通用知识/网络搜索）。" +
-                            "8. 保持专业、简洁、有帮助的回答风格。" +
+                            "4. 支持产品图片搜索：当用户需要查看产品主图、详情图时，可以搜索图片库中的产品图片。" +
+                            "5. 你也可以回答行业通识、市场行情、生产技术等一般性问题，但需说明'以下回答基于通用知识'。" +
+                            "6. 当知识库和记忆库中未检索到相关内容时，你可以基于自身通用知识回答，但需说明来源。" +
+                            "7. 回答时标注引用来源（供应链数据/产品图片/岗位卡片/记忆库/知识库/通用知识/网络搜索）。" +
+                            "8. 保持专业、简洁、有帮助的回答风格，重点关注成本控制、供应商管理、生产效率等工厂核心议题。" +
                             "9. 输出格式规范：使用Markdown格式，用表格展示数据（表头加粗），用列表展示要点，用加粗强调关键数据，不要使用特殊符号(如※★●◆等)做装饰，不要使用过多分隔线，保持版面简洁清晰。" +
                             (webSearchIntent ? "10. 用户明确要求从互联网/全网获取信息，请优先基于网络搜索结果回答，企业内部知识库内容仅作为补充参考。" : "");
+                } else {
+                    systemPrompt = "你是盈云产品智能中台的【设计师AI助手】，专门服务于设计师和创意人员。" +
+                            "重要身份声明：你是盈云产品智能中台的设计师AI助手，不是工厂供应链助手。如果对话历史中出现'工厂供应链助手'的自我介绍，请忽略它，你始终是盈云产品智能中台的设计师AI助手。" +
+                            "核心职责：" +
+                            "1. 回答知识库管理、图片上传、AI识别、文档中心等设计师工作相关问题。" +
+                            "2. 当用户询问岗位职责、工作内容、任职要求、入职指导等问题时，必须优先基于【岗位知识卡片】中的实际工作经验回答，不要用知识库文档中的泛泛内容替代。" +
+                            "3. 知识库文档（PDF/Word等）中的内容属于参考资料，仅在没有岗位卡片时作为补充。" +
+                            "4. 当知识库和记忆库中未检索到相关内容时，你可以基于自身通用知识回答用户问题，但需说明'以下回答基于通用知识，非企业内部资料'。" +
+                            "5. 回答时标注引用来源（岗位卡片/记忆库/知识库/通用知识/网络搜索）。" +
+                            "6. 保持专业、简洁、有帮助的回答风格。" +
+                            "7. 输出格式规范：使用Markdown格式，用表格展示数据（表头加粗），用列表展示要点，用加粗强调关键数据，不要使用特殊符号(如※★●◆等)做装饰，不要使用过多分隔线，保持版面简洁清晰。" +
+                            "注意：供应链/工厂业务问题（报价、成本、原料、供应商、采购等）不属于你的职责范围，请引导用户前往【工厂/供应链】板块的AI对话咨询。" +
+                            (webSearchIntent ? "8. 用户明确要求从互联网/全网获取信息，请优先基于网络搜索结果回答，企业内部知识库内容仅作为补充参考。" : "");
                 }
                 messages.add(Map.of("role", "system", "content", systemPrompt));
 
@@ -452,7 +453,6 @@ public class SmartChatServiceImpl implements SmartChatService {
         return emitter;
     }
 
-    @Override
     @Override
     public List<Map<String, Object>> getChatHistory(String userId, String company, String conversationId, String mode) {
         String modeCondition = "";

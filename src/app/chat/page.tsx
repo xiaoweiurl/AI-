@@ -545,7 +545,7 @@ export default function ChatPage() {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600
+          <div className="w-10 h-10 rounded-xl bg-slate-700
             flex items-center justify-center shadow-md animate-pulse">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
@@ -556,7 +556,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-violet-50/20">
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50/50">
       {/* 左侧边栏 */}
       {showSidebar && (
         <div className="w-72 border-r border-slate-200/50 bg-white/80 backdrop-blur-sm flex flex-col shadow-sm">
@@ -565,8 +565,8 @@ export default function ChatPage() {
             <button
               onClick={handleNewChat}
               className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl
-                bg-gradient-to-r from-violet-500 to-purple-600 text-white text-sm font-medium
-                hover:from-violet-600 hover:to-purple-700 transition-all shadow-sm hover:shadow-md
+                bg-slate-700 text-white text-sm font-medium
+                hover:bg-slate-800 transition-all shadow-sm hover:shadow-md
                 active:scale-[0.98]"
             >
               <Plus className="w-4 h-4" />
@@ -589,11 +589,11 @@ export default function ChatPage() {
                     onClick={() => handleSwitchChat(s.id)}
                     className={`w-full text-left px-3 py-2.5 rounded-xl transition-all border
                       ${s.id === activeSessionId
-                        ? 'bg-gradient-to-r from-violet-50 to-purple-50/50 text-violet-700 border-violet-100/80 shadow-sm'
+                        ? 'bg-slate-100/80 text-slate-700 border-slate-200/80 shadow-sm'
                         : 'text-slate-500 border-transparent hover:bg-slate-50/80 hover:text-slate-700'}`}
                   >
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${s.id === activeSessionId ? 'bg-violet-500' : 'bg-slate-300'}`} />
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${s.id === activeSessionId ? 'bg-slate-600' : 'bg-slate-300'}`} />
                       <div className="text-xs font-medium truncate pr-6 flex-1">{s.title}</div>
                     </div>
                     <div className="text-[10px] text-slate-400 mt-1 ml-4">{formatTime(s.timestamp)}</div>
@@ -639,7 +639,7 @@ export default function ChatPage() {
               <MessageSquare className="w-4 h-4 text-slate-400" />
             </button>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600
+              <div className="w-8 h-8 rounded-xl bg-slate-700
                 flex items-center justify-center shadow-sm">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
@@ -690,8 +690,8 @@ export default function ChatPage() {
               <div className="flex flex-col items-center justify-center py-16">
                 {/* Logo */}
                 <div className="relative mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600
-                    flex items-center justify-center shadow-lg shadow-violet-200/50">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-800
+                    flex items-center justify-center shadow-lg shadow-slate-200/50">
                     <Bot className="w-8 h-8 text-white" />
                   </div>
                   <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-gradient-to-br from-amber-400 to-orange-500
@@ -730,11 +730,11 @@ export default function ChatPage() {
                       key={i}
                       onClick={() => setInput(q)}
                       className="group text-left px-4 py-3 rounded-xl border border-slate-200/60 bg-white
-                        text-sm text-slate-500 hover:border-violet-200 hover:bg-gradient-to-r hover:from-violet-50/50 hover:to-purple-50/30
-                        hover:text-violet-600 hover:shadow-sm transition-all active:scale-[0.98]"
+                        text-sm text-slate-500 hover:border-slate-300 hover:bg-slate-50/80
+                        hover:text-slate-700 hover:shadow-sm transition-all active:scale-[0.98]"
                     >
                       <div className="flex items-center gap-2.5">
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-violet-400 shrink-0 transition-colors" />
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors" />
                         <span className="text-[13px] leading-snug">{q}</span>
                       </div>
                     </button>
@@ -749,7 +749,7 @@ export default function ChatPage() {
                   className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'} chat-msg-enter`}
                 >
                   {msg.role === 'assistant' && (
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600
+                    <div className="w-8 h-8 rounded-xl bg-slate-700
                       flex items-center justify-center shrink-0 shadow-sm mt-0.5">
                       <Bot className="w-4 h-4 text-white" />
                     </div>
@@ -816,7 +816,7 @@ export default function ChatPage() {
                     {/* 消息内容 */}
                     <div className={`relative group/msg
                       ${msg.role === 'user'
-                        ? 'px-4 py-3 rounded-2xl rounded-tr-md bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-violet-200/30'
+                        ? 'px-4 py-3 rounded-2xl rounded-tr-md bg-slate-700 text-white shadow-md shadow-slate-200/30'
                         : 'px-4 py-3 rounded-2xl rounded-tl-md bg-white border border-slate-200/60 text-slate-600 shadow-sm'}`}
                     >
                       {msg.role === 'user' ? (
@@ -826,7 +826,7 @@ export default function ChatPage() {
                       )}
                       {msg.isStreaming && (
                         <span className={`inline-block w-1.5 h-4 ml-0.5 align-middle animate-pulse rounded-full
-                          ${msg.isThinking ? 'bg-amber-400' : 'bg-violet-500'}`} />
+                          ${msg.isThinking ? 'bg-amber-400' : 'bg-slate-500'}`} />
                       )}
 
                       {/* 复制按钮 - 仅assistant消息完成时显示 */}
@@ -865,7 +865,7 @@ export default function ChatPage() {
                                   href={product.mainImage.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="group block rounded-lg overflow-hidden border border-violet-200/60 bg-violet-50/30 relative"
+                                  className="group block rounded-lg overflow-hidden border border-slate-200/60 bg-slate-50/30 relative"
                                 >
                                   <div className="aspect-[4/3] relative">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -878,7 +878,7 @@ export default function ChatPage() {
                                         (e.target as HTMLImageElement).src = '/file.svg';
                                       }}
                                     />
-                                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-violet-500 text-white text-[10px] font-medium">
+                                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-700 text-white text-[10px] font-medium">
                                       主图
                                     </span>
                                   </div>
@@ -957,7 +957,7 @@ export default function ChatPage() {
                   rows={1}
                   className="w-full px-4 py-3 rounded-xl border border-slate-200/60
                     bg-slate-50/50 text-slate-700 text-[13px] resize-none
-                    focus:outline-none focus:ring-2 focus:ring-violet-500/15 focus:border-violet-300 focus:bg-white
+                    focus:outline-none focus:ring-2 focus:ring-slate-500/15 focus:border-slate-300 focus:bg-white
                     placeholder:text-slate-400 transition-all shadow-sm"
                   style={{ maxHeight: '120px', minHeight: '44px', color: '#334155' }}
                   disabled={isChatting}
@@ -969,7 +969,7 @@ export default function ChatPage() {
                 className={`shrink-0 w-11 h-11 rounded-xl flex items-center justify-center transition-all
                   ${isChatting || !input.trim()
                     ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-violet-500 to-purple-600 text-white shadow-md shadow-violet-200/40 hover:shadow-lg hover:shadow-violet-300/40 active:scale-95'}`}
+                    : 'bg-gradient-to-r from-slate-700 to-slate-900 text-white shadow-md shadow-slate-200/40 hover:shadow-lg hover:shadow-slate-300/40 active:scale-95'}`}
               >
                 {isChatting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>

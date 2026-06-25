@@ -27,13 +27,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 智能对话服务实现 - 双库检索(知识库+记忆库) + MiniMax流式对话
+ * 智能对话服务实现 - 双库检索(知识库+记忆库) + DeepSeek V4 Pro流式对话(思考模式)
  *
  * 检索流程:
  * 1. 记忆库检索: PostgreSQL向量搜索(MemoryService.search)
  * 2. 知识库检索: 同样使用PostgreSQL向量搜索(MemoryService.search，不限定domain)
  * 3. 合并去重结果作为上下文
- * 4. 调MiniMax API流式对话
+ * 4. 调DeepSeek V4 Pro API流式对话(思考模式，含思维链)
  */
 @Slf4j
 @Service
@@ -65,6 +65,21 @@ public class SmartChatServiceImpl implements SmartChatService {
 
     @Value("${app.minimax.model:MiniMax-M3}")
     private String minimaxModel;
+
+    @Value("${app.deepseek.api-key:}")
+    private String deepseekApiKey;
+
+    @Value("${app.deepseek.base-url:https://api.deepseek.com}")
+    private String deepseekBaseUrl;
+
+    @Value("${app.deepseek.model:deepseek-v4-pro}")
+    private String deepseekModel;
+
+    @Value("${app.deepseek.thinking-enabled:true}")
+    private boolean deepseekThinkingEnabled;
+
+    @Value("${app.deepseek.reasoning-effort:high}")
+    private String deepseekReasoningEffort;
 
     @Override
     public SseEmitter smartChat(String message, String userId, String company, String conversationId) {
@@ -354,7 +369,7 @@ public class SmartChatServiceImpl implements SmartChatService {
                 // 6. 保存用户消息
                 saveChatMessage(userId, convId, "user", message, company);
 
-                // 7. 流式调用MiniMax
+                // 7. 流式调用DeepSeek V4 Pro
                 StringBuilder fullResponse = new StringBuilder();
                 try {
                     streamChat(emitter, messages, fullResponse);
@@ -1287,35 +1302,55 @@ public class SmartChatServiceImpl implements SmartChatService {
     /**
      * 流式调用MiniMax API (Anthropic兼容接口)
      */
+    /**
+     * 流式调用DeepSeek V4 Pro（思考模式）
+     * 
+     * DeepSeek API格式（OpenAI兼容）：
+     * - 端点: POST {base_url}/chat/completions
+     * - 请求: {"model":"deepseek-v4-pro","messages":[...],"stream":true,"thinking":{"type":"enabled"},"reasoning_effort":"high"}
+     * - 流式响应: data: {"choices":[{"delta":{"reasoning_content":"..."}}]}  (思维链)
+     *              data: {"choices":[{"delta":{"content":"..."}}]}              (最终回答)
+     */
     private void streamChat(SseEmitter emitter, List<Map<String, Object>> messages,
                             StringBuilder fullResponse) {
         try {
-            String apiKey = minimaxApiKey;
+            String apiKey = deepseekApiKey;
             if (apiKey == null || apiKey.isEmpty()) {
-                apiKey = System.getenv("MINIMAX_API_KEY");
+                apiKey = System.getenv("DEEPSEEK_API_KEY");
             }
             if (apiKey == null || apiKey.isEmpty()) {
-                throw new RuntimeException("未配置MiniMax API密钥, 请设置环境变量 MINIMAX_API_KEY");
+                throw new RuntimeException("未配置DeepSeek API密钥, 请设置环境变量 DEEPSEEK_API_KEY");
             }
 
+            // 构建请求体（OpenAI Chat Completions格式）
             Map<String, Object> body = new HashMap<>();
-            body.put("model", minimaxModel);
+            body.put("model", deepseekModel);
             body.put("max_tokens", 8192);
             body.put("stream", true);
-            body.put("temperature", 0.7);
-            body.put("system", "你是盈云产品智能中台的AI助手，专注于供应链、工厂管理、产品知识、报价和成本核算领域。" +
-                    "请基于提供的记忆库知识卡片、知识库文档片段和供应链业务数据回答用户问题。" +
-                    "回答时标注引用来源(记忆库/知识库/供应链数据)。" +
-                    "当涉及报价、成本、原料、供应商等数据时，务必引用具体的数字和计算过程。" +
-                    "如果参考资料中没有相关信息，请明确说明，不要编造。" +
-                    "回答使用中文。保持对话连贯性，参考上下文历史。" +
-                    "重要：请确保每句话都完整说完，不要在中途停止或截断。即使回答较长，也要把所有内容完整输出到自然结束。");
+
+            // 思考模式配置
+            if (deepseekThinkingEnabled) {
+                Map<String, Object> thinking = new HashMap<>();
+                thinking.put("type", "enabled");
+                body.put("thinking", thinking);
+                body.put("reasoning_effort", deepseekReasoningEffort);
+                // 注意：思考模式下 temperature/top_p/presence_penalty/frequency_penalty 无效
+                // 为兼容性保留，DeepSeek会忽略这些参数
+            } else {
+                body.put("temperature", 0.7);
+            }
+
             body.put("messages", messages);
 
-            String endpointUrl = minimaxBaseUrl.endsWith("/") ? minimaxBaseUrl.substring(0, minimaxBaseUrl.length() - 1) : minimaxBaseUrl;
-            if (!endpointUrl.endsWith("/messages")) {
-                endpointUrl = endpointUrl + "/anthropic/v1/messages";
+            // 请求DeepSeek API
+            String endpointUrl = deepseekBaseUrl;
+            if (endpointUrl.endsWith("/")) {
+                endpointUrl = endpointUrl.substring(0, endpointUrl.length() - 1);
             }
+            if (!endpointUrl.endsWith("/chat/completions")) {
+                endpointUrl = endpointUrl + "/chat/completions";
+            }
+
             HttpURLConnection conn = (HttpURLConnection) URI.create(endpointUrl).toURL().openConnection();
             conn.setRequestMethod("POST");
             conn.setRequestProperty("Content-Type", "application/json");
@@ -1338,8 +1373,15 @@ public class SmartChatServiceImpl implements SmartChatService {
                     errorBody.append(line);
                 }
                 errorReader.close();
-                throw new RuntimeException("MiniMax API返回错误 " + responseCode + ": " + errorBody);
+                throw new RuntimeException("DeepSeek API返回错误 " + responseCode + ": " + errorBody);
             }
+
+            // 解析SSE流式响应
+            // DeepSeek SSE格式:
+            //   data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"思考内容"},"finish_reason":null}]}
+            //   data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"回答内容"},"finish_reason":null}]}
+            //   data: [DONE]
+            StringBuilder reasoningContent = new StringBuilder();
 
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
@@ -1349,70 +1391,64 @@ public class SmartChatServiceImpl implements SmartChatService {
                         String data = line.substring(5).trim();
                         if (data.isEmpty()) continue;
 
+                        // 流结束标记
+                        if ("[DONE]".equals(data)) {
+                            // 发送思考过程（如果有）
+                            if (reasoningContent.length() > 0) {
+                                emitter.send(SseEmitter.event().name("message").data(
+                                        objectMapper.writeValueAsString(Map.of(
+                                                "type", "reasoning",
+                                                "content", reasoningContent.toString()
+                                        ))
+                                ));
+                            }
+                            emitter.send(SseEmitter.event().name("message").data(
+                                    objectMapper.writeValueAsString(Map.of("type", "done"))
+                            ));
+                            return;
+                        }
+
                         try {
                             JsonNode node = objectMapper.readTree(data);
-                            String eventType = node.path("type").asText("");
+                            JsonNode choices = node.path("choices");
+                            if (choices.isArray() && choices.size() > 0) {
+                                JsonNode choice = choices.get(0);
+                                JsonNode delta = choice.path("delta");
+                                String finishReason = choice.path("finish_reason").asText("");
 
-                            switch (eventType) {
-                                case "content_block_start":
-                                    JsonNode cbStart = node.path("content_block");
-                                    String cbType = cbStart.path("type").asText("");
-                                    log.debug("content_block_start 类型: {}", cbType);
-                                    if ("text".equals(cbType)) {
-                                        String text = cbStart.path("text").asText("");
-                                        if (!text.isEmpty()) {
-                                            fullResponse.append(text);
-                                            emitter.send(SseEmitter.event().name("message").data(
-                                                    objectMapper.writeValueAsString(Map.of("type", "content", "content", text))
-                                            ));
-                                            log.info("content_block_start text: 长度={}, 内容前50字={}", text.length(), text.substring(0, Math.min(text.length(), 50)));
-                                        }
+                                // 思维链内容（reasoning_content）
+                                if (delta.has("reasoning_content") && !delta.path("reasoning_content").isNull()) {
+                                    String reasoning = delta.path("reasoning_content").asText("");
+                                    if (!reasoning.isEmpty()) {
+                                        reasoningContent.append(reasoning);
+                                        // 实时推送思维链片段
+                                        emitter.send(SseEmitter.event().name("message").data(
+                                                objectMapper.writeValueAsString(Map.of(
+                                                        "type", "reasoning_delta",
+                                                        "content", reasoning
+                                                ))
+                                        ));
                                     }
-                                    break;
-                                case "content_block_delta":
-                                    JsonNode delta = node.path("delta");
-                                    String deltaType = delta.path("type").asText("");
-                                    // MiniMax兼容: 支持 text_delta 和 text 两种类型
-                                    if ("text_delta".equals(deltaType) || "text".equals(deltaType)) {
-                                        String text = delta.has("text") ? delta.path("text").asText("")
-                                                : delta.has("content") ? delta.path("content").asText("")
-                                                : delta.path("partial_json").asText("");
-                                        if (!text.isEmpty()) {
-                                            fullResponse.append(text);
-                                            emitter.send(SseEmitter.event().name("message").data(
-                                                    objectMapper.writeValueAsString(Map.of("type", "content", "content", text))
-                                            ));
-                                            log.debug("text_delta: 长度={}", text.length());
-                                        }
-                                    } else if (!deltaType.isEmpty()) {
-                                        log.info("未处理的delta类型: {}, 数据: {}", deltaType, delta.toString().substring(0, Math.min(delta.toString().length(), 200)));
+                                }
+
+                                // 最终回答内容（content）
+                                if (delta.has("content") && !delta.path("content").isNull()) {
+                                    String content = delta.path("content").asText("");
+                                    if (!content.isEmpty()) {
+                                        fullResponse.append(content);
+                                        emitter.send(SseEmitter.event().name("message").data(
+                                                objectMapper.writeValueAsString(Map.of(
+                                                        "type", "content",
+                                                        "content", content
+                                                ))
+                                        ));
                                     }
-                                    break;
-                                case "content_block_stop":
-                                    int cbIndex = node.path("index").asInt(-1);
-                                    log.debug("content_block_stop index: {}", cbIndex);
-                                    break;
-                                case "message_delta":
-                                    JsonNode msgDelta = node.path("delta");
-                                    String stopReason = msgDelta.path("stop_reason").asText("");
-                                    if (!stopReason.isEmpty()) {
-                                        log.info("MiniMax消息停止原因: {}, 累计输出字符数: {}", stopReason, fullResponse.length());
-                                    }
-                                    break;
-                                case "message_stop":
-                                    emitter.send(SseEmitter.event().name("message").data(
-                                            objectMapper.writeValueAsString(Map.of("type", "done"))
-                                    ));
-                                    return;
-                                case "error":
-                                    String errorMsg = node.path("error").path("message").asText("未知错误");
-                                    throw new RuntimeException("MiniMax流式错误: " + errorMsg);
-                                default:
-                                    // message_start, ping 等事件是正常协议事件，无需处理
-                                    if (!eventType.isEmpty() && !"message_start".equals(eventType) && !"ping".equals(eventType)) {
-                                        log.debug("未处理的SSE事件类型: {}, data: {}", eventType, data.substring(0, Math.min(data.length(), 200)));
-                                    }
-                                    break;
+                                }
+
+                                // 完成原因
+                                if (!finishReason.isEmpty() && !"null".equals(finishReason)) {
+                                    log.info("DeepSeek完成原因: {}, 累计输出字符数: {}", finishReason, fullResponse.length());
+                                }
                             }
                         } catch (Exception parseEx) {
                             if (parseEx instanceof RuntimeException) throw parseEx;
@@ -1421,8 +1457,21 @@ public class SmartChatServiceImpl implements SmartChatService {
                     }
                 }
             }
+
+            // 如果没有收到[DONE]但流正常结束
+            if (reasoningContent.length() > 0) {
+                emitter.send(SseEmitter.event().name("message").data(
+                        objectMapper.writeValueAsString(Map.of(
+                                "type", "reasoning",
+                                "content", reasoningContent.toString()
+                        ))
+                ));
+            }
+            emitter.send(SseEmitter.event().name("message").data(
+                    objectMapper.writeValueAsString(Map.of("type", "done"))
+            ));
         } catch (Exception e) {
-            log.error("MiniMax流式对话失败: {}", e.getMessage());
+            log.error("DeepSeek流式对话失败: {}", e.getMessage());
             throw new RuntimeException("流式对话失败: " + e.getMessage());
         }
     }

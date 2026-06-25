@@ -26,6 +26,7 @@ interface ChatImage {
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  reasoning?: string; // DeepSeek思考模式思维链
   sources?: Array<{
     source: 'memory' | 'knowledge';
     title?: string;
@@ -35,6 +36,7 @@ interface ChatMessage {
   }>;
   images?: ChatImage[];
   isStreaming?: boolean;
+  isThinking?: boolean; // 正在思考中
 }
 
 interface ChatSession {
@@ -234,7 +236,9 @@ export default function ChatPage() {
     const assistantMsg: ChatMessage = {
       role: 'assistant',
       content: '',
+      reasoning: '',
       isStreaming: true,
+      isThinking: false,
     };
     setMessages(prev => [...prev, assistantMsg]);
 
@@ -300,6 +304,34 @@ export default function ChatPage() {
                 }
                 return updated;
               });
+            } else if (event.type === 'reasoning_delta') {
+              // DeepSeek思考模式：思维链增量片段
+              setMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.isStreaming) {
+                  updated[updated.length - 1] = {
+                    ...last,
+                    reasoning: (last.reasoning || '') + event.content,
+                    isThinking: true,
+                  };
+                }
+                return updated;
+              });
+            } else if (event.type === 'reasoning') {
+              // 思考完成，标记思考结束
+              setMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.isStreaming) {
+                  updated[updated.length - 1] = {
+                    ...last,
+                    reasoning: event.content || last.reasoning,
+                    isThinking: false,
+                  };
+                }
+                return updated;
+              });
             } else if (event.type === 'content') {
               setMessages(prev => {
                 const updated = [...prev];
@@ -317,7 +349,7 @@ export default function ChatPage() {
                 const updated = [...prev];
                 const last = updated[updated.length - 1];
                 if (last) {
-                  updated[updated.length - 1] = { ...last, isStreaming: false };
+                  updated[updated.length - 1] = { ...last, isStreaming: false, isThinking: false };
                 }
                 return updated;
               });
@@ -669,6 +701,27 @@ export default function ChatPage() {
                         ))}
                       </div>
                     )}
+                    {/* 思维链（DeepSeek思考模式） */}
+                    {msg.role === 'assistant' && msg.reasoning && (
+                      <details className="mb-2 group">
+                        <summary className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer hover:text-slate-500 transition-colors select-none">
+                          <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          {msg.isThinking ? (
+                            <span className="flex items-center gap-1">
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                              正在深度思考...
+                            </span>
+                          ) : (
+                            <span>思考过程</span>
+                          )}
+                        </summary>
+                        <div className="mt-1.5 p-2.5 bg-slate-50/80 border border-slate-100 rounded-lg text-[11px] text-slate-400 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
+                          {msg.reasoning}
+                        </div>
+                      </details>
+                    )}
                     {/* 消息内容 */}
                     <div className={`px-3.5 py-2.5 rounded-xl text-[13px] leading-relaxed
                       ${msg.role === 'user'
@@ -681,7 +734,8 @@ export default function ChatPage() {
                         <MarkdownRenderer content={msg.content || ''} />
                       )}
                       {msg.isStreaming && (
-                        <span className="inline-block w-1.5 h-3.5 bg-violet-500 animate-pulse ml-0.5 align-middle" />
+                        <span className={`inline-block w-1.5 h-3.5 ml-0.5 align-middle animate-pulse
+                          ${msg.isThinking ? 'bg-amber-400' : 'bg-violet-500'}`} />
                       )}
                     </div>
 

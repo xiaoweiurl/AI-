@@ -91,17 +91,26 @@ app:
     base-url: ${AI_BASE_URL:https://api.coze.cn}
     model: doubao-seed-2-0-pro-260215
   
-  # MiniMax 配置（记忆库AI对话 + Embedding）
+  # MiniMax 配置（Embedding 向量化，保留）
   minimax:
     api-key: ${MINIMAX_API_KEY:REDACTED_MINIMAX_KEY}
     base-url: ${MINIMAX_BASE_URL:https://api.minimaxi.com}
     model: ${MINIMAX_MODEL:MiniMax-M3}
     # MiniMax Embedding 配置（向量维度 1536）
-    # group-id: 旧版 api.minimax.chat 接口需要，新版 api.minimaxi.com OpenAI兼容格式不需要
     embedding:
       base-url: ${MINIMAX_EMBEDDING_URL:https://api.minimaxi.com/v1/embeddings}
       model: ${MINIMAX_EMBEDDING_MODEL:embo-01}
       group-id: ${MINIMAX_GROUP_ID:}
+  
+  # DeepSeek 配置（AI对话，思考模式）
+  deepseek:
+    api-key: ${DEEPSEEK_API_KEY:REDACTED_DEEPSEEK_KEY}
+    base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    model: ${DEEPSEEK_MODEL:deepseek-v4-pro}
+    # 思考模式：enabled=开启思维链，disabled=关闭
+    thinking-enabled: ${DEEPSEEK_THINKING_ENABLED:true}
+    # 推理强度：high 或 max
+    reasoning-effort: ${DEEPSEEK_REASONING_EFFORT:high}
   
   # 去水印配置
   watermark:

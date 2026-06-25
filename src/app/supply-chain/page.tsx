@@ -354,9 +354,9 @@ export default function SupplyChainPage() {
         buffer = lines.pop() || '';
 
         for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') continue;
+          if (!line.startsWith('data:')) continue;
+          const data = line.substring(5).trim();
+          if (!data || data === '[DONE]') continue;
 
           try {
             const parsed = JSON.parse(data);

@@ -68,17 +68,14 @@ export default function LoginPage() {
       const company = localStorage.getItem('user_company') || '';
       // 构造最小用户信息以支持 portal 页面显示
       setLoggedInUser({
-        success: true,
-        data: {
-          sessionId: localStorage.getItem('session_id') || '',
-          user: {
-            id: username,
-            username: localStorage.getItem('username') || '用户',
-            role: 'user' as const,
-            company,
-          },
+        sessionId: localStorage.getItem('session_id') || '',
+        user: {
+          id: username,
+          username: localStorage.getItem('username') || '用户',
+          role: 'user' as const,
+          company,
         },
-      } as LoginResponse);
+      });
     }
   }, []);
 

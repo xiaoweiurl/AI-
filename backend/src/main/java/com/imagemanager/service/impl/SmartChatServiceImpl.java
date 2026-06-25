@@ -115,14 +115,17 @@ public class SmartChatServiceImpl implements SmartChatService {
                 // 通用闲聊意图识别：当用户问的是闲聊/身份/通用常识类问题时，跳过所有知识库检索
                 boolean generalChatIntent = isGeneralChatIntent(message);
 
+                // 工厂模式判断（用于后续多处逻辑分支）
+                boolean isFactory = "factory".equals(mode);
+
                 // 联网搜索意图识别：当用户明确要求联网/全网搜索时，强制启用联网搜索
                 boolean webSearchIntent = isWebSearchIntent(message);
 
                 // 外部知识意图识别：当问题需要外部/通用知识时，跳过知识库检索直接联网搜索
                 boolean externalKnowledgeIntent = !isFactory && isExternalKnowledgeIntent(message);
 
-                log.info("意图识别: mode={}, generalChatIntent={}, webSearchIntent={}, externalKnowledgeIntent={}, supplyChainIntent={}, positionIntent={}",
-                        mode, generalChatIntent, webSearchIntent, externalKnowledgeIntent, supplyChainIntent, positionIntent);
+                log.info("意图识别: mode={}, isFactory={}, generalChatIntent={}, webSearchIntent={}, externalKnowledgeIntent={}, supplyChainIntent={}, positionIntent={}",
+                        mode, isFactory, generalChatIntent, webSearchIntent, externalKnowledgeIntent, supplyChainIntent, positionIntent);
 
                 // 3. 供应链/工厂数据检索(优先检索，命中后降低知识库检索权重)
                 List<Map<String, Object>> supplyChainResults = Collections.emptyList();
@@ -137,7 +140,6 @@ public class SmartChatServiceImpl implements SmartChatService {
 
                 // 4. 双库检索（工厂模式只检索供应链数据，不检索知识库/记忆库/岗位卡片）
                 // 外部知识意图时也跳过向量检索，因为这类问题需要联网搜索而非查PDF
-                boolean isFactory = "factory".equals(mode);
                 boolean skipVectorSearch = isFactory || (strongSupplyChainIntent && !supplyChainResults.isEmpty()) || generalChatIntent || externalKnowledgeIntent;
 
                 // 4a. 岗位卡片向量检索（仅设计师模式）

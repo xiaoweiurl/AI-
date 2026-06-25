@@ -6,7 +6,7 @@ import { backendFetch } from '@/lib/backend-proxy';
 import {
   MessageSquare, Send, Plus, Trash2, ArrowLeft,
   Bot, User, BookOpen, Brain, Loader2, Sparkles,
-  Globe, ChevronRight, Lightbulb, Copy, Check
+  Globe, ChevronRight, Lightbulb, Copy, Check, Zap
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 
@@ -1016,8 +1016,11 @@ export default function ChatPage() {
                 <Globe className="w-2.5 h-2.5" />
                 联网搜索
               </span>
-              <span className="text-slate-200">|</span>
-              <span>DeepSeek V4 Pro 驱动</span>
+              <span className="text-slate-300">|</span>
+              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700/60 text-white text-[10px] font-medium tracking-wide">
+                <Zap className="w-2.5 h-2.5 text-yellow-400" />
+                DeepSeek V4 Pro
+              </span>
             </p>
           </div>
         </div>

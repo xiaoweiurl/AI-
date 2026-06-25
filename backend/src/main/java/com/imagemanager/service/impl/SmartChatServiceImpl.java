@@ -115,6 +115,11 @@ public class SmartChatServiceImpl implements SmartChatService {
                 // 通用闲聊意图识别：当用户问的是闲聊/身份/通用常识类问题时，跳过所有知识库检索
                 boolean generalChatIntent = isGeneralChatIntent(message);
 
+                // 联网搜索意图识别：当用户明确要求联网/全网搜索时，强制启用联网搜索
+                boolean webSearchIntent = isWebSearchIntent(message);
+                log.info("意图识别: generalChatIntent={}, webSearchIntent={}, supplyChainIntent={}, positionIntent={}",
+                        generalChatIntent, webSearchIntent, supplyChainIntent, positionIntent);
+
                 // 3. 供应链/工厂数据检索(优先检索，命中后降低知识库检索权重)
                 List<Map<String, Object>> supplyChainResults = Collections.emptyList();
                 if (supplyChainIntent && !generalChatIntent) {
@@ -348,9 +353,10 @@ public class SmartChatServiceImpl implements SmartChatService {
                         "4. 当用户询问岗位职责、工作内容、任职要求、入职指导等问题时，必须优先基于【岗位知识卡片】中的实际工作经验回答，不要用知识库文档中的泛泛内容替代。" +
                         "5. 知识库文档（PDF/Word等）中的内容属于参考资料，仅在没有精确业务数据或岗位卡片时作为补充。" +
                         "6. 当知识库和记忆库中未检索到相关内容时，你可以基于自身通用知识回答用户问题，但需说明'以下回答基于通用知识，非企业内部资料'。" +
-                        "7. 回答时标注引用来源（供应链数据/岗位卡片/记忆库/知识库/通用知识）。" +
+                        "7. 回答时标注引用来源（供应链数据/岗位卡片/记忆库/知识库/通用知识/网络搜索）。" +
                         "8. 保持专业、简洁、有帮助的回答风格。" +
-                        "9. 输出格式规范：使用Markdown格式，用表格展示数据（表头加粗），用列表展示要点，用加粗强调关键数据，不要使用特殊符号(如※★●◆等)做装饰，不要使用过多分隔线，保持版面简洁清晰。";
+                        "9. 输出格式规范：使用Markdown格式，用表格展示数据（表头加粗），用列表展示要点，用加粗强调关键数据，不要使用特殊符号(如※★●◆等)做装饰，不要使用过多分隔线，保持版面简洁清晰。" +
+                        (webSearchIntent ? "10. 用户明确要求从互联网/全网获取信息，请优先基于网络搜索结果回答，企业内部知识库内容仅作为补充参考。" : "");
                 messages.add(Map.of("role", "system", "content", systemPrompt));
 
                 // 加入历史对话(最近10轮)
@@ -395,8 +401,8 @@ public class SmartChatServiceImpl implements SmartChatService {
                 saveChatMessage(userId, convId, "user", message, company, null);
 
                 // 7. 流式调用DeepSeek V4 Pro
-                // 联网搜索策略：通用闲聊或知识库无结果时启用联网搜索
-                boolean enableWebSearch = generalChatIntent || knowledgeContext.isEmpty();
+                // 联网搜索策略：用户明确要求联网搜索，或通用闲聊，或知识库无结果时启用联网搜索
+                boolean enableWebSearch = webSearchIntent || generalChatIntent || knowledgeContext.isEmpty();
                 StringBuilder fullResponse = new StringBuilder();
                 StringBuilder fullReasoning = new StringBuilder();
                 try {
@@ -946,6 +952,41 @@ public class SmartChatServiceImpl implements SmartChatService {
             }
         }
         
+        return false;
+    }
+
+    /**
+     * 联网搜索意图识别：当用户明确要求从互联网/全网获取信息时返回true
+     * 典型场景："帮我去全网学习无缝内衣的行业知识"、"联网查一下最新的行情"、"网上搜索..."
+     */
+    private boolean isWebSearchIntent(String message) {
+        String lower = message.toLowerCase().trim();
+
+        // 明确要求联网/全网/网上搜索的关键词
+        String[] webSearchPatterns = {
+            // 直接要求联网搜索（强烈信号）
+            "全网", "联网", "网上查", "网上搜", "网上找", "互联网上",
+            "在线搜索", "在线查找",
+            "去全网", "从网上", "从互联网", "在网",
+            // 搜索引擎相关
+            "百度一下", "百度搜", "谷歌搜", "google搜",
+            // 行业调研/市场分析（通常需要外部信息源）
+            "市场调研", "行业调研", "竞品分析", "市场分析",
+            "行业报告", "行业趋势", "行业动态", "行业资讯",
+            "了解行情", "了解市场", "了解行业",
+            "学习行业知识", "行业知识",
+            "查行情", "看行情", "行情分析",
+            // 明确要求最新外部资讯
+            "最新行情", "最新资讯", "最新动态", "最新趋势",
+            "实时行情", "实时资讯",
+            // 对比分析类
+            "对比分析", "竞品对比", "价格对比"
+        };
+
+        for (String kw : webSearchPatterns) {
+            if (lower.contains(kw)) return true;
+        }
+
         return false;
     }
 

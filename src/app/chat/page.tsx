@@ -196,10 +196,16 @@ export default function ChatPage() {
       });
       const data = await res.json();
       if (data.success && data.history?.length > 0) {
-        return data.history.map((m: { role: string; content: string }) => ({
-          role: m.role as ChatMessage['role'],
-          content: m.content,
-        }));
+        return data.history.map((m: { role: string; content: string; reasoning?: string }) => {
+          const msg: ChatMessage = {
+            role: m.role as ChatMessage['role'],
+            content: m.content,
+          };
+          if (m.reasoning) {
+            msg.reasoning = m.reasoning;
+          }
+          return msg;
+        });
       }
     } catch { /* ignore */ }
     return [];

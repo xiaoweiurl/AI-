@@ -344,7 +344,21 @@ public class SmartChatServiceImpl implements SmartChatService {
                 // 加入历史对话(最近10轮)
                 int startIdx = Math.max(0, history.size() - 5);
                 for (int i = startIdx; i < history.size(); i++) {
-                    messages.add(history.get(i));
+                    Map<String, Object> histMsg = history.get(i);
+                    // DeepSeek多轮对话：assistant消息需要携带reasoning_content字段
+                    if ("assistant".equals(histMsg.get("role")) && histMsg.containsKey("reasoning")) {
+                        Map<String, Object> msgForApi = new LinkedHashMap<>();
+                        msgForApi.put("role", "assistant");
+                        msgForApi.put("content", histMsg.get("content"));
+                        msgForApi.put("reasoning_content", histMsg.get("reasoning"));
+                        messages.add(msgForApi);
+                    } else {
+                        // user和system消息只保留role和content
+                        Map<String, Object> msgForApi = new LinkedHashMap<>();
+                        msgForApi.put("role", histMsg.get("role"));
+                        msgForApi.put("content", histMsg.get("content"));
+                        messages.add(msgForApi);
+                    }
                 }
 
                 // 当前用户消息(带知识上下文)
@@ -367,16 +381,18 @@ public class SmartChatServiceImpl implements SmartChatService {
                 messages.add(Map.of("role", "user", "content", userContent));
 
                 // 6. 保存用户消息
-                saveChatMessage(userId, convId, "user", message, company);
+                saveChatMessage(userId, convId, "user", message, company, null);
 
                 // 7. 流式调用DeepSeek V4 Pro
                 StringBuilder fullResponse = new StringBuilder();
+                StringBuilder fullReasoning = new StringBuilder();
                 try {
-                    streamChat(emitter, messages, fullResponse);
+                    streamChat(emitter, messages, fullResponse, fullReasoning);
                 } finally {
-                    // 8. 无论流是否成功，都保存已收集的AI回复
+                    // 8. 无论流是否成功，都保存已收集的AI回复（含思维链）
                     if (fullResponse.length() > 0) {
-                        saveChatMessage(userId, convId, "assistant", fullResponse.toString(), company);
+                        String reasoning = fullReasoning.length() > 0 ? fullReasoning.toString() : null;
+                        saveChatMessage(userId, convId, "assistant", fullResponse.toString(), company, reasoning);
                     }
                 }
 
@@ -403,7 +419,7 @@ public class SmartChatServiceImpl implements SmartChatService {
         List<Map<String, Object>> results;
         if (conversationId != null && !conversationId.isEmpty()) {
             // 按conversationId查询对话历史
-            String sql = "SELECT role, content, created_at FROM smart_chat_history " +
+            String sql = "SELECT role, content, reasoning_content, created_at FROM smart_chat_history " +
                     "WHERE conversation_id = ?::uuid AND user_id = ? AND (company = ? OR company IS NULL) " +
                     "ORDER BY created_at ASC LIMIT 100";
             results = jdbcTemplate.query(sql,
@@ -411,6 +427,10 @@ public class SmartChatServiceImpl implements SmartChatService {
                         Map<String, Object> msg = new LinkedHashMap<>();
                         msg.put("role", rs.getString("role"));
                         msg.put("content", rs.getString("content"));
+                        String reasoning = rs.getString("reasoning_content");
+                        if (reasoning != null && !reasoning.isEmpty()) {
+                            msg.put("reasoning", reasoning);
+                        }
                         msg.put("createdAt", rs.getTimestamp("created_at").toLocalDateTime().toString());
                         return msg;
                     },
@@ -418,7 +438,7 @@ public class SmartChatServiceImpl implements SmartChatService {
             );
         } else {
             // 兼容旧逻辑：按userId+company查询最近10轮对话
-            String sql = "SELECT role, content, created_at FROM smart_chat_history " +
+            String sql = "SELECT role, content, reasoning_content, created_at FROM smart_chat_history " +
                     "WHERE user_id = ? AND (company = ? OR company IS NULL) " +
                     "ORDER BY created_at DESC LIMIT 20";
             results = jdbcTemplate.query(sql,
@@ -426,6 +446,10 @@ public class SmartChatServiceImpl implements SmartChatService {
                         Map<String, Object> msg = new LinkedHashMap<>();
                         msg.put("role", rs.getString("role"));
                         msg.put("content", rs.getString("content"));
+                        String reasoning = rs.getString("reasoning_content");
+                        if (reasoning != null && !reasoning.isEmpty()) {
+                            msg.put("reasoning", reasoning);
+                        }
                         msg.put("createdAt", rs.getTimestamp("created_at").toLocalDateTime().toString());
                         return msg;
                     },
@@ -1281,17 +1305,18 @@ public class SmartChatServiceImpl implements SmartChatService {
     /**
      * 保存对话消息（按userId+company绑定，session_id存储为基于userId生成的确定性UUID）
      */
-    private void saveChatMessage(String userId, String conversationId, String role, String content, String company) {
+    private void saveChatMessage(String userId, String conversationId, String role, String content, String company, String reasoningContent) {
         try {
             if (content == null || content.trim().isEmpty()) {
                 log.warn("保存对话消息跳过: content为空, userId={}, role={}", userId, role);
                 return;
             }
-            log.info("保存对话消息: userId={}, role={}, contentLength={}, company={}, conversationId={}", userId, role, content.length(), company, conversationId);
+            log.info("保存对话消息: userId={}, role={}, contentLength={}, company={}, conversationId={}, hasReasoning={}", 
+                    userId, role, content.length(), company, conversationId, reasoningContent != null && !reasoningContent.isEmpty());
             jdbcTemplate.update(
-                    "INSERT INTO smart_chat_history (id, session_id, conversation_id, role, content, user_id, company, created_at) " +
-                            "VALUES (gen_random_uuid(), ?::uuid, ?::uuid, ?, ?, ?, ?, NOW())",
-                    conversationId, conversationId, role, content, userId, company
+                    "INSERT INTO smart_chat_history (id, session_id, conversation_id, role, content, reasoning_content, user_id, company, created_at) " +
+                            "VALUES (gen_random_uuid(), ?::uuid, ?::uuid, ?, ?, ?, ?, ?, NOW())",
+                    conversationId, conversationId, role, content, reasoningContent, userId, company
             );
             log.info("保存对话消息成功: userId={}, role={}", userId, role);
         } catch (Exception e) {
@@ -1312,7 +1337,7 @@ public class SmartChatServiceImpl implements SmartChatService {
      *              data: {"choices":[{"delta":{"content":"..."}}]}              (最终回答)
      */
     private void streamChat(SseEmitter emitter, List<Map<String, Object>> messages,
-                            StringBuilder fullResponse) {
+                            StringBuilder fullResponse, StringBuilder reasoningContent) {
         try {
             String apiKey = deepseekApiKey;
             if (apiKey == null || apiKey.isEmpty()) {
@@ -1381,7 +1406,6 @@ public class SmartChatServiceImpl implements SmartChatService {
             //   data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"reasoning_content":"思考内容"},"finish_reason":null}]}
             //   data: {"id":"...","object":"chat.completion.chunk","choices":[{"index":0,"delta":{"content":"回答内容"},"finish_reason":null}]}
             //   data: [DONE]
-            StringBuilder reasoningContent = new StringBuilder();
 
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {

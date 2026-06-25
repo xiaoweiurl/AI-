@@ -27,6 +27,7 @@ interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   reasoning?: string; // DeepSeek思考模式思维链
+  searchResults?: string; // 联网搜索结果摘要
   sources?: Array<{
     source: 'memory' | 'knowledge';
     title?: string;
@@ -334,6 +335,18 @@ export default function ChatPage() {
                     ...last,
                     reasoning: event.content || last.reasoning,
                     isThinking: false,
+                  };
+                }
+                return updated;
+              });
+            } else if (event.type === 'web_search_result') {
+              setMessages(prev => {
+                const updated = [...prev];
+                const last = updated[updated.length - 1];
+                if (last?.isStreaming) {
+                  updated[updated.length - 1] = {
+                    ...last,
+                    searchResults: event.content || '',
                   };
                 }
                 return updated;
@@ -725,6 +738,22 @@ export default function ChatPage() {
                         </summary>
                         <div className="mt-1.5 p-2.5 bg-slate-50/80 border border-slate-100 rounded-lg text-[11px] text-slate-400 leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap">
                           {msg.reasoning}
+                        </div>
+                      </details>
+                    )}
+                    {msg.role === 'assistant' && msg.searchResults && (
+                      <details className="mb-2 group" open>
+                        <summary className="flex items-center gap-1.5 text-[11px] text-blue-400 cursor-pointer hover:text-blue-500 transition-colors select-none">
+                          <svg className="w-3 h-3 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          <span className="flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" /></svg>
+                            联网搜索结果
+                          </span>
+                        </summary>
+                        <div className="mt-1 text-[11px] text-blue-500/80 bg-blue-50/50 rounded-lg p-2 whitespace-pre-wrap border border-blue-100/50">
+                          {msg.searchResults}
                         </div>
                       </details>
                     )}

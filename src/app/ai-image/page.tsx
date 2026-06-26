@@ -199,24 +199,44 @@ export default function AiImagePage() {
     });
   }, []);
 
-  // 上传参考图片到存储并获取URL
-  const uploadRefImages = useCallback(async (): Promise<string[]> => {
-    const urls: string[] = [];
+  // 将参考图片压缩并转为 base64（图生图 API 支持 base64 格式）
+  const convertRefImagesToBase64 = useCallback(async (): Promise<string[]> => {
+    const results: string[] = [];
     for (const img of referenceImages) {
       if (img.url) {
-        urls.push(img.url);
+        results.push(img.url);
         continue;
       }
-      const formData = new FormData();
-      formData.append('file', img.file);
-      formData.append('fileName', img.file.name);
-      const res = await fetch('/api/files/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (data.success && data.data?.url) {
-        urls.push(data.data.url);
-      }
+      // 压缩图片到最大 1024px，质量 0.8，减少 base64 体积
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const image = new window.Image();
+        image.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 1024;
+          let { width, height } = image;
+          if (width > MAX_SIZE || height > MAX_SIZE) {
+            if (width > height) {
+              height = Math.round((height / width) * MAX_SIZE);
+              width = MAX_SIZE;
+            } else {
+              width = Math.round((width / height) * MAX_SIZE);
+              height = MAX_SIZE;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('Canvas 不可用')); return; }
+          ctx.drawImage(image, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(dataUrl);
+        };
+        image.onerror = reject;
+        image.src = img.preview;
+      });
+      results.push(base64);
     }
-    return urls;
+    return results;
   }, [referenceImages]);
 
   const handleGenerate = useCallback(async () => {
@@ -225,14 +245,15 @@ export default function AiImagePage() {
     setError('');
 
     try {
-      // 上传参考图片（如有）
+      // 转换参考图片为 base64（如有）
       let imageUrls: string[] = [];
       if (referenceImages.length > 0) {
         setIsUploadingRef(true);
         try {
-          imageUrls = await uploadRefImages();
+          imageUrls = await convertRefImagesToBase64();
+          console.log('[AI生图] 参考图片转换完成，数量:', imageUrls.length);
         } catch (err) {
-          console.error('参考图片上传失败:', err);
+          console.error('参考图片转换失败:', err);
         }
         setIsUploadingRef(false);
       }
@@ -837,7 +858,7 @@ export default function AiImagePage() {
                     {isUploadingRef ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        上传参考图片中...
+                        处理参考图片中...
                       </>
                     ) : isGenerating ? (
                       <>

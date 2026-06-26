@@ -112,10 +112,11 @@ public class AiImageController {
             }
 
             String apiRequestBodyStr = objectMapper.writeValueAsString(apiRequestBody);
-            log.info("AI生图请求: model={}, aspectRatio={}, imageSize={}, prompt长度={}",
+            int imagesCount = requestJson.has("images") && requestJson.get("images").isArray() ? requestJson.get("images").size() : 0;
+            log.info("AI生图请求: model={}, aspectRatio={}, imageSize={}, prompt长度={}, 参考图片数={}",
                     model, aspectRatio,
                     requestJson.has("imageSize") ? requestJson.get("imageSize").asText() : "N/A",
-                    prompt.length());
+                    prompt.length(), imagesCount);
 
             // 设置请求头
             HttpHeaders headers = new HttpHeaders();

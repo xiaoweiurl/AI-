@@ -119,6 +119,8 @@ export default function AiImagePage() {
 
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [referenceImages, setReferenceImages] = useState<{ file: File; preview: string; url?: string }[]>([]);
+  const [isUploadingRef, setIsUploadingRef] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<
     { url: string; prompt: string; model: string; detail: string; timestamp: number }[]
   >([]);
@@ -128,6 +130,7 @@ export default function AiImagePage() {
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const refImageInputRef = useRef<HTMLInputElement>(null);
 
   const isGptVip = activeModel === 'gpt-image-2-vip';
 
@@ -171,12 +174,69 @@ export default function AiImagePage() {
     }
   }, []);
 
+  // 处理参考图片上传
+  const handleRefImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newImages: { file: File; preview: string }[] = [];
+    Array.from(files).forEach((file) => {
+      if (file.type.startsWith('image/') && referenceImages.length + newImages.length < 4) {
+        const preview = URL.createObjectURL(file);
+        newImages.push({ file, preview });
+      }
+    });
+    setReferenceImages((prev) => [...prev, ...newImages].slice(0, 4));
+    // 清空 input 以便重复选择同一文件
+    if (e.target) e.target.value = '';
+  }, [referenceImages.length]);
+
+  // 移除参考图片
+  const removeRefImage = useCallback((index: number) => {
+    setReferenceImages((prev) => {
+      const item = prev[index];
+      if (item) URL.revokeObjectURL(item.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  // 上传参考图片到存储并获取URL
+  const uploadRefImages = useCallback(async (): Promise<string[]> => {
+    const urls: string[] = [];
+    for (const img of referenceImages) {
+      if (img.url) {
+        urls.push(img.url);
+        continue;
+      }
+      const formData = new FormData();
+      formData.append('file', img.file);
+      formData.append('fileName', img.file.name);
+      const res = await fetch('/api/files/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.success && data.data?.url) {
+        urls.push(data.data.url);
+      }
+    }
+    return urls;
+  }, [referenceImages]);
+
   const handleGenerate = useCallback(async () => {
     if (!prompt.trim() || isGenerating) return;
     setIsGenerating(true);
     setError('');
 
     try {
+      // 上传参考图片（如有）
+      let imageUrls: string[] = [];
+      if (referenceImages.length > 0) {
+        setIsUploadingRef(true);
+        try {
+          imageUrls = await uploadRefImages();
+        } catch (err) {
+          console.error('参考图片上传失败:', err);
+        }
+        setIsUploadingRef(false);
+      }
+
       let requestBody: Record<string, unknown>;
 
       if (modelType === 'nano') {
@@ -185,7 +245,7 @@ export default function AiImagePage() {
           prompt: prompt.trim(),
           aspectRatio: nanoAspectRatio,
           imageSize: nanoImageSize,
-          images: [],
+          images: imageUrls,
           replyType: 'json',
         };
       } else {
@@ -203,7 +263,7 @@ export default function AiImagePage() {
           model: activeModel,
           prompt: prompt.trim(),
           aspectRatio,
-          images: [],
+          images: imageUrls,
           replyType: 'json',
         };
       }
@@ -706,16 +766,80 @@ export default function AiImagePage() {
                     </div>
                   </div>
 
+                  {/* 参考图片上传 */}
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-2">
+                        <Upload className="w-4 h-4 text-slate-400" />
+                        <span className="text-sm font-medium text-slate-600">参考图片</span>
+                        <span className="text-xs text-slate-400">（图生图，最多4张）</span>
+                      </div>
+                      {referenceImages.length > 0 && (
+                        <button
+                          onClick={() => {
+                            referenceImages.forEach(img => URL.revokeObjectURL(img.preview));
+                            setReferenceImages([]);
+                          }}
+                          className="text-xs text-slate-400 hover:text-red-500 transition-colors"
+                        >
+                          清空全部
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-2.5 flex-wrap">
+                      {referenceImages.map((img, idx) => (
+                        <div
+                          key={idx}
+                          className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 group"
+                        >
+                          <img
+                            src={img.preview}
+                            alt={`参考图${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            onClick={() => removeRefImage(idx)}
+                            className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {referenceImages.length < 4 && (
+                        <button
+                          onClick={() => refImageInputRef.current?.click()}
+                          className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-200 hover:border-slate-400 hover:bg-slate-50 flex flex-col items-center justify-center gap-1 transition-all duration-200 group"
+                        >
+                          <Upload className="w-5 h-5 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                          <span className="text-[10px] text-slate-400 group-hover:text-slate-500">上传</span>
+                        </button>
+                      )}
+                      <input
+                        ref={refImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleRefImageUpload}
+                        className="hidden"
+                      />
+                    </div>
+                  </div>
+
                   <button
                     onClick={handleGenerate}
-                    disabled={isGenerating || !prompt.trim()}
+                    disabled={isGenerating || !prompt.trim() || isUploadingRef}
                     className={`w-full mt-4 py-3.5 rounded-xl font-semibold text-sm text-white transition-all duration-300 flex items-center justify-center gap-2 ${
-                      isGenerating || !prompt.trim()
+                      isGenerating || !prompt.trim() || isUploadingRef
                         ? 'bg-slate-300 cursor-not-allowed'
                         : `bg-gradient-to-r ${accentBg} hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0`
                     }`}
                   >
-                    {isGenerating ? (
+                    {isUploadingRef ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        上传参考图片中...
+                      </>
+                    ) : isGenerating ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         AI 正在创作中...

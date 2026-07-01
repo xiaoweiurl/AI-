@@ -100,7 +100,11 @@ public class SmartChatServiceImpl implements SmartChatService {
                     convId = getOrCreateDefaultConversation(userId, company, mode);
                 }
 
-                // 1. 加载历史对话（按conversationId）
+                // 1. 发送conversationId给前端
+                final String finalConvId = convId;
+                emitter.send(SseEmitter.event().name("conversation").data(finalConvId));
+
+                // 2. 加载历史对话（按conversationId）
                 List<Map<String, Object>> history = getChatHistory(userId, company, convId);
 
                 // 2. 意图识别：供应链意图仅在工厂模式下生效

@@ -60,6 +60,8 @@ export default function FloatingAI() {
   const [isChatting, setIsChatting] = useState(false);
   const [thinkingExpanded, setThinkingExpanded] = useState(true);
   const [searchExpanded, setSearchExpanded] = useState(true);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isUserScrollingRef = useRef(false);
@@ -113,7 +115,7 @@ export default function FloatingAI() {
       const res = await fetch('/api/chat/smart', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, mode }),
+        body: JSON.stringify({ message: text, mode, conversationId }),
       });
 
       if (!res.ok) throw new Error(`请求失败: ${res.status}`);
@@ -139,6 +141,10 @@ export default function FloatingAI() {
 
           try {
             const data = JSON.parse(dataStr);
+            // 保存conversationId用于上下文对话
+            if (data.conversationId) {
+              setConversationId(data.conversationId);
+            }
             if (data.content) {
               fullContent += data.content;
               setMessages(prev => prev.map(m =>
@@ -195,10 +201,52 @@ export default function FloatingAI() {
     }
   }, [isOpen]);
 
-  // mode变化时清空对话
+  // 加载对话历史
+  const loadHistory = useCallback(async (targetMode: string) => {
+    try {
+      setIsLoadingHistory(true);
+      const res = await fetch(`/api/chat/history?mode=${targetMode}`);
+      if (!res.ok) { setIsLoadingHistory(false); return; }
+      const data = await res.json();
+      if (data.history && data.history.length > 0) {
+        const historyMessages: ChatMessage[] = data.history.map((h: { role: string; content: string; thinkingChain?: string[]; searchResults?: { title: string; url: string; snippet: string }[] }) => ({
+          id: crypto.randomUUID(),
+          role: h.role as 'user' | 'assistant',
+          content: h.content,
+          thinkingChain: h.thinkingChain || [],
+          searchResults: h.searchResults || [],
+          isStreaming: false,
+        }));
+        setMessages(historyMessages);
+        setConversationId(data.conversationId || null);
+        setTimeout(() => scrollToBottom(true), 100);
+      } else {
+        setMessages([]);
+        setConversationId(null);
+      }
+    } catch {
+      setMessages([]);
+      setConversationId(null);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, []);
+
+  // mode变化时加载对应历史
   useEffect(() => {
     setMessages([]);
-  }, [mode]);
+    setConversationId(null);
+    if (isOpen) {
+      loadHistory(mode);
+    }
+  }, [mode, isOpen, loadHistory]);
+
+  // 面板打开时加载历史
+  useEffect(() => {
+    if (isOpen && messages.length === 0) {
+      loadHistory(mode);
+    }
+  }, [isOpen]);
 
   return (
     <>
